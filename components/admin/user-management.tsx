@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Search, UserPlus, Edit, Trash2, Mail, Calendar } from "lucide-react"
+import { ArrowLeft, Search, Edit, Trash2, Mail, Calendar, Check, X, Clock } from "lucide-react"
 import Link from "next/link"
 
-// Mock user data
+// Mock user data with pending approval status
 const mockUsers = [
   {
     id: "1",
@@ -51,20 +51,40 @@ const mockUsers = [
     sessionsCount: 1,
     company: "TechCorp Inc",
   },
+  {
+    id: "5",
+    name: "Emma Wilson",
+    email: "emma@startup.com",
+    role: "party",
+    status: "pending",
+    lastLogin: "Never",
+    sessionsCount: 0,
+    company: "Startup Inc",
+  },
+  {
+    id: "6",
+    name: "David Brown",
+    email: "david@venture.com",
+    role: "party",
+    status: "pending",
+    lastLogin: "Never",
+    sessionsCount: 0,
+    company: "Venture Capital",
+  },
 ]
 
 export function UserManagement() {
   const { user, logout } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
-  const [roleFilter, setRoleFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   const filteredUsers = mockUsers.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.company.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = roleFilter === "all" || u.role === roleFilter
-    return matchesSearch && matchesRole
+    const matchesStatus = statusFilter === "all" || u.status === statusFilter
+    return matchesSearch && matchesStatus
   })
 
   const getRoleColor = (role: string) => {
@@ -84,10 +104,24 @@ export function UserManagement() {
         return "bg-green-100 text-green-800"
       case "inactive":
         return "bg-red-100 text-red-800"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
   }
+
+  const handleApproveUser = (userId: string) => {
+    console.log("[v0] Approving user:", userId)
+    // API call to approve user would go here
+  }
+
+  const handleRejectUser = (userId: string) => {
+    console.log("[v0] Rejecting user:", userId)
+    // API call to reject user would go here
+  }
+
+  const pendingCount = mockUsers.filter((u) => u.status === "pending").length
 
   return (
     <div className="min-h-screen bg-background">
@@ -103,6 +137,12 @@ export function UserManagement() {
                 </Link>
               </Button>
               <h1 className="text-xl font-heading font-semibold">User Management</h1>
+              {pendingCount > 0 && (
+                <Badge variant="destructive" className="gap-1">
+                  <Clock className="w-3 h-3" />
+                  {pendingCount} pending approval
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Welcome, {user?.name}</span>
@@ -120,12 +160,8 @@ export function UserManagement() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-heading font-bold mb-2">User Management</h2>
-            <p className="text-muted-foreground">Manage user accounts and permissions</p>
+            <p className="text-muted-foreground">Review and approve user registrations, manage user permissions</p>
           </div>
-          <Button className="gap-2">
-            <UserPlus className="w-4 h-4" />
-            Add User
-          </Button>
         </div>
 
         {/* Search and Filters */}
@@ -140,13 +176,14 @@ export function UserManagement() {
             />
           </div>
           <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 border rounded-md bg-background"
           >
-            <option value="all">All Roles</option>
-            <option value="admin">Admin</option>
-            <option value="party">Party</option>
+            <option value="all">All Status</option>
+            <option value="pending">Pending Approval</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
         </div>
 
@@ -154,7 +191,7 @@ export function UserManagement() {
         <Card>
           <CardHeader>
             <CardTitle>Users ({filteredUsers.length})</CardTitle>
-            <CardDescription>Manage user accounts and their access permissions</CardDescription>
+            <CardDescription>Review user registrations and manage account permissions</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -203,12 +240,35 @@ export function UserManagement() {
                       </td>
                       <td className="p-3">
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          {u.status === "pending" ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => handleApproveUser(u.id)}
+                              >
+                                <Check className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleRejectUser(u.id)}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button variant="ghost" size="sm">
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -237,10 +297,8 @@ export function UserManagement() {
           </Card>
           <Card>
             <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {mockUsers.filter((u) => u.role === "party").length}
-              </div>
-              <div className="text-sm text-muted-foreground">Party Users</div>
+              <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
+              <div className="text-sm text-muted-foreground">Pending Approval</div>
             </CardContent>
           </Card>
           <Card>

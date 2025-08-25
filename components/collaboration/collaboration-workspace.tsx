@@ -86,6 +86,34 @@ export function CollaborationWorkspace() {
   const unresolvedCount = mockCollaborationData.unresolvedClauses.length
   const resolvedCount = mockCollaborationData.comparisonResults.length - unresolvedCount
 
+  const handleExportResults = () => {
+    console.log("[v0] Exporting results for session:", sessionId)
+    // Mock export functionality - in real app would trigger download
+    const exportData = {
+      sessionId,
+      parties: mockCollaborationData.parties,
+      results: mockCollaborationData.comparisonResults,
+      exportedAt: new Date().toISOString(),
+    }
+
+    // Create and download JSON file
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `nda-results-${sessionId}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleGenerateDocument = () => {
+    console.log("[v0] Generating document for session:", sessionId)
+    // Switch to document tab to show document generation
+    setActiveTab("document")
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -119,11 +147,11 @@ export function CollaborationWorkspace() {
               <p className="text-muted-foreground">Review matching results and resolve conflicts</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="gap-2 bg-transparent">
+              <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExportResults}>
                 <Download className="w-4 h-4" />
                 Export Results
               </Button>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={handleGenerateDocument}>
                 <FileText className="w-4 h-4" />
                 Generate Document
               </Button>

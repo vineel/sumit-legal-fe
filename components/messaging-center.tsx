@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import { Progress } from "@/components/ui/progress"
 import {
   MessageSquare,
   Send,
@@ -21,6 +22,9 @@ import {
   EyeOff,
   Settings,
   Users,
+  Zap,
+  TrendingUp,
+  FileText,
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -88,6 +92,7 @@ export function MessagingCenter() {
   const [newMessage, setNewMessage] = useState("")
   const [aiGuidanceMode, setAiGuidanceMode] = useState<"private" | "shared">("shared")
   const [showAiSuggestions, setShowAiSuggestions] = useState(true)
+  const [resolutionProgress, setResolutionProgress] = useState(65)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const currentDiscussion = mockDiscussions.find((d) => d.clauseName === activeDiscussion)
@@ -105,35 +110,54 @@ export function MessagingCenter() {
 
     const message: Message = {
       id: Date.now().toString(),
-      sender: "brad", // In real app, this would be determined by current user
+      sender: "brad",
       content: newMessage,
       timestamp: new Date(),
       type: "message",
     }
 
-    // In real app, this would update the backend
     currentDiscussion.messages.push(message)
     setNewMessage("")
 
-    // Simulate AI response after user message
     setTimeout(() => {
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         sender: "ai",
-        content: `Based on your latest message, I suggest considering: "${newMessage.slice(0, 50)}..." - This aligns with standard industry practices for similar clauses.`,
+        content: generateContextualAIResponse(newMessage, currentDiscussion.clauseName),
         timestamp: new Date(),
         type: "suggestion",
       }
       currentDiscussion.messages.push(aiResponse)
+      setResolutionProgress(Math.min(resolutionProgress + 5, 95))
     }, 2000)
+  }
+
+  const generateContextualAIResponse = (userMessage: string, clauseName: string) => {
+    const responses = {
+      "Term of Confidentiality": [
+        "Based on your message, I recommend considering a tiered approach: 3 years for business information, indefinite for trade secrets. This balances protection with practical compliance.",
+        "Industry analysis shows 73% of similar negotiations resolve with hybrid duration terms. Would you like me to draft specific language?",
+        "Your concern about IP protection is valid. Consider adding specific carveouts for regulatory disclosures while maintaining core protections.",
+      ],
+      "Purpose of Disclosure": [
+        "For investment due diligence, I suggest 'evaluation of potential business relationship' language that's broad enough for thorough review but specific enough to prevent misuse.",
+        "Based on similar VC negotiations, adding 'and related advisory services' gives appropriate flexibility while maintaining boundaries.",
+      ],
+    }
+
+    const clauseResponses = responses[clauseName as keyof typeof responses] || [
+      "I've analyzed your message and can suggest several approaches that align with both parties' interests. Would you like specific language recommendations?",
+    ]
+
+    return clauseResponses[Math.floor(Math.random() * clauseResponses.length)]
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-accent text-accent-foreground"
+        return "bg-warning text-warning-foreground"
       case "resolved":
-        return "bg-primary text-primary-foreground"
+        return "bg-success text-success-foreground"
       case "pending":
         return "bg-muted text-muted-foreground"
       default:
@@ -152,6 +176,13 @@ export function MessagingCenter() {
       default:
         return { name: "Unknown", avatar: "?", color: "bg-muted" }
     }
+  }
+
+  const getResolutionConfidence = () => {
+    if (!currentDiscussion) return 0
+    const messageCount = currentDiscussion.messages.length
+    const aiSuggestions = currentDiscussion.messages.filter((m) => m.type === "suggestion").length
+    return Math.min(messageCount * 10 + aiSuggestions * 15, 95)
   }
 
   return (
@@ -180,6 +211,31 @@ export function MessagingCenter() {
               </Button>
             </div>
           </div>
+
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-heading flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Resolution Progress
+                </CardTitle>
+                <Badge variant="outline" className="gap-1">
+                  <Zap className="w-3 h-3" />
+                  {getResolutionConfidence()}% Confidence
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Progress value={resolutionProgress} className="mb-2" />
+              <p className="text-xs text-muted-foreground">
+                {resolutionProgress < 50
+                  ? "Early stage negotiation"
+                  : resolutionProgress < 80
+                    ? "Making good progress"
+                    : "Near resolution"}
+              </p>
+            </CardContent>
+          </Card>
 
           {/* AI Guidance Mode */}
           <Card className="mb-6">
@@ -256,10 +312,16 @@ export function MessagingCenter() {
                         <span>{currentDiscussion.participants.join(", ")}</span>
                       </CardDescription>
                     </div>
-                    <Button size="sm" variant="outline" className="gap-2 bg-transparent">
-                      <CheckCircle className="w-4 h-4" />
-                      Mark Resolved
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="gap-2 bg-transparent">
+                        <FileText className="w-4 h-4" />
+                        View Clause
+                      </Button>
+                      <Button size="sm" variant="outline" className="gap-2 bg-transparent">
+                        <CheckCircle className="w-4 h-4" />
+                        Mark Resolved
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
 
@@ -307,6 +369,9 @@ export function MessagingCenter() {
                                   </Button>
                                   <Button size="sm" variant="ghost" className="text-xs h-7">
                                     Modify
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="text-xs h-7">
+                                    Request Alternative
                                   </Button>
                                 </div>
                               )}
@@ -360,7 +425,6 @@ export function MessagingCenter() {
           </div>
         </div>
 
-        {/* AI Insights Panel */}
         {showAiSuggestions && (
           <Card className="mt-6">
             <CardHeader>
@@ -370,7 +434,7 @@ export function MessagingCenter() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="text-sm">
@@ -383,6 +447,13 @@ export function MessagingCenter() {
                   <AlertDescription className="text-sm">
                     <strong>Compromise Opportunity:</strong> Consider adding specific carveouts for regulatory
                     compliance requirements.
+                  </AlertDescription>
+                </Alert>
+                <Alert>
+                  <TrendingUp className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    <strong>Resolution Likelihood:</strong> Based on message sentiment analysis,{" "}
+                    {getResolutionConfidence()}% chance of agreement within 3 exchanges.
                   </AlertDescription>
                 </Alert>
               </div>

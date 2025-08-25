@@ -4,78 +4,78 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color palette to match design brief - professional legal-tech colors */
-  --background: oklch(1 0 0); /* #ffffff */
-  --foreground: oklch(0.27 0.014 258.338); /* #1f2937 - gray-800 */
-  --card: oklch(0.984 0.013 142.425); /* #f1f5f9 - light gray */
-  --card-foreground: oklch(0.27 0.014 258.338); /* #1f2937 */
-  --popover: oklch(1 0 0); /* #ffffff */
-  --popover-foreground: oklch(0.27 0.014 258.338); /* #1f2937 */
-  --primary: oklch(0.27 0.014 258.338); /* #1f2937 - gray-800 primary */
-  --primary-foreground: oklch(1 0 0); /* #ffffff */
-  --secondary: oklch(0.708 0 0); /* #6b7280 - gray-600 */
-  --secondary-foreground: oklch(1 0 0); /* #ffffff */
-  --muted: oklch(0.984 0.013 142.425); /* #f1f5f9 */
-  --muted-foreground: oklch(0.708 0 0); /* #6b7280 */
-  --accent: oklch(0.664 0.15 162.48); /* #8b5cf6 - purple accent */
-  --accent-foreground: oklch(1 0 0); /* #ffffff */
-  --destructive: oklch(0.608 0.214 49.72); /* #d97706 - orange destructive */
-  --destructive-foreground: oklch(1 0 0); /* #ffffff */
-  --border: oklch(0.922 0.013 258.338); /* #e5e7eb */
-  --input: oklch(0.984 0.013 142.425); /* #f9fafb */
-  --ring: oklch(0.664 0.15 162.48); /* #8b5cf6 - purple ring */
-  --chart-1: oklch(0.748 0.15 120.557); /* #fbbf24 */
-  --chart-2: oklch(0.664 0.15 162.48); /* #4ade80 */
-  --chart-3: oklch(0.564 0.151 166.111); /* #3b82f6 */
-  --chart-4: oklch(0.486 0.141 155.233); /* #6366f1 */
-  --chart-5: oklch(0.608 0.214 49.72); /* #9333ea */
-  --radius: 0.5rem;
-  --sidebar: oklch(1 0 0); /* #ffffff */
-  --sidebar-foreground: oklch(0.27 0.014 258.338); /* #1f2937 */
-  --sidebar-primary: oklch(0.984 0.013 142.425); /* #f3f4f6 */
-  --sidebar-primary-foreground: oklch(0.27 0.014 258.338); /* #1f2937 */
-  --sidebar-accent: oklch(0.664 0.15 162.48); /* #8b5cf6 */
-  --sidebar-accent-foreground: oklch(1 0 0); /* #ffffff */
-  --sidebar-border: oklch(0.922 0.013 258.338); /* #e5e7eb */
-  --sidebar-ring: oklch(0.664 0.15 162.48); /* #8b5cf6 */
+  /* Updated color palette to match design brief - professional legal-tech colors with yellow-orange theme */
+  --background: #ffffff; /* Background for the entire application */
+  --foreground: #4b5563; /* Main text color */
+  --card: #fefce8; /* Card background for user inputs and suggestions */
+  --card-foreground: #4b5563; /* Text color within cards */
+  --popover: #ffffff; /* Background for popover suggestions */
+  --popover-foreground: #4b5563; /* Text color for popovers */
+  --primary: #a16207; /* Primary actions such as buttons */
+  --primary-foreground: #ffffff; /* Text color for primary buttons */
+  --secondary: #f97316; /* Secondary actions */
+  --secondary-foreground: #ffffff; /* Text color for secondary buttons */
+  --muted: #fefce8; /* Background for less emphasized elements */
+  --muted-foreground: #4b5563; /* Text color for muted elements */
+  --accent: #f97316; /* Accent elements */
+  --accent-foreground: #ffffff; /* Text color for accent elements */
+  --destructive: #dc2626; /* Color for error messages or warnings */
+  --destructive-foreground: #ffffff; /* Text color for destructive actions */
+  --border: #e5e7eb; /* Border color for input fields and cards */
+  --input: #fefce8; /* Background for input fields */
+  --ring: rgba(162, 98, 7, 0.5); /* Ring color for focus states */
+  --chart-1: #a16207; /* Chart color 1 */
+  --chart-2: #f97316; /* Chart color 2 */
+  --chart-3: #dc2626; /* Chart color 3 */
+  --chart-4: #fefce8; /* Chart color 4 */
+  --chart-5: #4b5563; /* Chart color 5 */
+  --radius: 0.5rem; /* Corner rounding for cards and buttons */
+  --sidebar: #fefce8; /* Sidebar background */
+  --sidebar-foreground: #4b5563; /* Sidebar text color */
+  --sidebar-primary: #a16207; /* Primary action color in sidebar */
+  --sidebar-primary-foreground: #ffffff; /* Text color for primary actions in sidebar */
+  --sidebar-accent: #f97316; /* Accent color in sidebar */
+  --sidebar-accent-foreground: #ffffff; /* Text color for sidebar accents */
+  --sidebar-border: #e5e7eb; /* Border color for sidebar */
+  --sidebar-ring: rgba(162, 98, 7, 0.5); /* Focus ring color for sidebar elements */
   /* Updated font variables to match imported fonts */
   --font-dm-sans: "DM Sans";
   --font-space-grotesk: "Space Grotesk";
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.664 0.15 162.48);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.27 0.014 258.338);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.664 0.15 162.48);
-  --accent-foreground: oklch(0.145 0 0);
-  --destructive: oklch(0.608 0.214 49.72);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.664 0.15 162.48);
-  --chart-1: oklch(0.748 0.15 120.557);
-  --chart-2: oklch(0.664 0.15 162.48);
-  --chart-3: oklch(0.564 0.151 166.111);
-  --chart-4: oklch(0.486 0.141 155.233);
-  --chart-5: oklch(0.608 0.214 49.72);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.664 0.15 162.48);
-  --sidebar-primary-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.27 0.014 258.338);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.664 0.15 162.48);
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #a16207;
+  --primary-foreground: #ffffff;
+  --secondary: #f97316;
+  --secondary-foreground: #ffffff;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --accent: #f97316;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #334155;
+  --input: #1e293b;
+  --ring: rgba(162, 98, 7, 0.5);
+  --chart-1: #a16207;
+  --chart-2: #f97316;
+  --chart-3: #dc2626;
+  --chart-4: #fefce8;
+  --chart-5: #4b5563;
+  --sidebar: #1e293b;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #a16207;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f97316;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #334155;
+  --sidebar-ring: rgba(162, 98, 7, 0.5);
 }
 
 @theme inline {
