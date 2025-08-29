@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
+import { jsPDF } from "jspdf"; // For PDF generation
+import { Document, Packer, Paragraph, TextRun } from "docx";
 import {
   FileText,
   Download,
@@ -81,6 +83,109 @@ export function DocumentExportSystem({ comparisonResults, sessionId, parties }: 
     }
   }
 
+  
+
+ // The main export function
+const downloadDocument = (format: "pdf" | "docx" | "txt") => {
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    try {
+      const documentContent = generateDocumentContent(); // Generate the content
+
+      // Handle PDF Export
+      if (format === "pdf") {
+        const doc = new jsPDF();
+        doc.text(documentContent.coverPage.title, 10, 10);
+        doc.text(`Date: ${documentContent.coverPage.date}`, 10, 20);
+        doc.text(`Session ID: ${documentContent.coverPage.sessionId}`, 10, 30);
+        doc.text(`Status: ${documentContent.coverPage.status}`, 10, 40);
+
+        // Add Parties
+        doc.text("Parties:", 10, 50);
+        documentContent.coverPage.parties.forEach((party, index) => {
+          doc.text(`- ${party.name} (${party.email})`, 10, 60 + index * 10);
+        });
+
+        // Add Legal Terms (Resolved)
+        doc.text("LEGAL TERMS:", 10, 70);
+        documentContent.legalTerms.resolved.forEach((clause, index) => {
+          doc.text(`${index + 1}. ${clause.title.toUpperCase()}: ${clause.content}`, 10, 80 + index * 10);
+        });
+
+        doc.save(`NDA_${documentContent.coverPage.sessionId}_${documentContent.coverPage.status}.pdf`);
+
+      } 
+      // Handle DOCX Export
+      else if (format === "docx") {
+        const doc = new Document({
+          sections: [
+            {
+              properties: {},
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun(documentContent.coverPage.title),
+                    new TextRun("\n"),
+                    new TextRun(`Date: ${documentContent.coverPage.date}`),
+                    new TextRun("\n"),
+                    new TextRun(`Session ID: ${documentContent.coverPage.sessionId}`),
+                    new TextRun("\n"),
+                    new TextRun(`Status: ${documentContent.coverPage.status}`),
+                  ],
+                }),
+                new Paragraph({
+                  children: [new TextRun("Parties:")],
+                }),
+                ...documentContent.coverPage.parties.map((party: any) =>
+                  new Paragraph({
+                    children: [new TextRun(`- ${party.name} (${party.email})`)],
+                  })
+                ),
+                new Paragraph({
+                  children: [new TextRun("LEGAL TERMS:")],
+                }),
+                ...documentContent.legalTerms.resolved.map((clause: any, index: number) =>
+                  new Paragraph({
+                    children: [new TextRun(`${index + 1}. ${clause.title.toUpperCase()}: ${clause.content}`)],
+                  })
+                ),
+              ],
+            },
+          ],
+        });
+
+        Packer.toBlob(doc).then((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `NDA_${documentContent.coverPage.sessionId}_${documentContent.coverPage.status}.docx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+
+      } 
+      // Handle TXT Export
+      else if (format === "txt") {
+        const content = formatDocumentForExport(documentContent, "txt");
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `NDA_${documentContent.coverPage.sessionId}_${documentContent.coverPage.status}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+    } catch (error) {
+      console.error("Error generating or downloading the document:", error);
+    }
+  }
+};
+
+
   const handleExport = async (format: "pdf" | "docx" | "txt") => {
     setIsExporting(true)
     setExportProgress(0)
@@ -99,28 +204,34 @@ export function DocumentExportSystem({ comparisonResults, sessionId, parties }: 
     }, 200)
   }
 
-  const downloadDocument = (format: string) => {
-    const document = generateDocumentContent()
-    const content = formatDocumentForExport(document, format)
+  // const downloadDocument = (format: string) => {
+  //   const document = generateDocumentContent()
+  //   const content = formatDocumentForExport(document, format)
 
-    const blob = new Blob([content], {
-      type:
-        format === "pdf"
-          ? "application/pdf"
-          : format === "docx"
-            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            : "text/plain",
-    })
+  //   const blob = new Blob([content], {
+  //     type:
+  //       format === "pdf"
+  //         ? "application/pdf"
+  //         : format === "docx"
+  //           ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  //           : "text/plain",
+  //   })
 
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `NDA_${sessionId}_${document.coverPage.status}.${format}`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
+  //   const url = URL.createObjectURL(blob)
+  //   const a = document.createElement("a")
+  //   a.href = url
+  //   a.download = `NDA_${sessionId}_${document.coverPage.status}.${format}`
+  //   document.body.appendChild(a)
+  //   a.click()
+  //   document.body.removeChild(a)
+  //   URL.revokeObjectURL(url)
+  // }
+
+ 
+
+
+
+
 
   const formatDocumentForExport = (document: any, format: string) => {
     if (format === "txt") {
