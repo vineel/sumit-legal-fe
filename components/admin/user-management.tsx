@@ -8,90 +8,36 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Search, Edit, Trash2, Mail, Calendar, Check, X, Clock } from "lucide-react"
 import Link from "next/link"
-import { fetchAllUsers } from "@/lib/admin"
-
-// Mock user data with pending approval status
-const mockUsers = [
-  {
-    id: "1",
-    name: "John Smith",
-    email: "john@bradsguitar.com",
-    role: "party",
-    status: "active",
-    lastLogin: "2024-01-15",
-    sessionsCount: 5,
-    company: "Brad's Guitars",
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    email: "sarah@meemer.vc",
-    role: "party",
-    status: "active",
-    lastLogin: "2024-01-14",
-    sessionsCount: 3,
-    company: "Meemer VC",
-  },
-  {
-    id: "3",
-    name: "Admin User",
-    email: "admin@demo.com",
-    role: "admin",
-    status: "active",
-    lastLogin: "2024-01-16",
-    sessionsCount: 0,
-    company: "System",
-  },
-  {
-    id: "4",
-    name: "Mike Chen",
-    email: "mike@techcorp.com",
-    role: "party",
-    status: "inactive",
-    lastLogin: "2024-01-05",
-    sessionsCount: 1,
-    company: "TechCorp Inc",
-  },
-  {
-    id: "5",
-    name: "Emma Wilson",
-    email: "emma@startup.com",
-    role: "party",
-    status: "pending",
-    lastLogin: "Never",
-    sessionsCount: 0,
-    company: "Startup Inc",
-  },
-  {
-    id: "6",
-    name: "David Brown",
-    email: "david@venture.com",
-    role: "party",
-    status: "pending",
-    lastLogin: "Never",
-    sessionsCount: 0,
-    company: "Venture Capital",
-  },
-]
-
+import { fetchAllUsers, searchUsers, updateUser, deleteUser, type User } from "@/lib/admin"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export function UserManagement() {
   const { user, logout } = useAuth()
-    const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editStatus, setEditStatus] = useState<string>("active")
+  const [deletingUser, setDeletingUser] = useState<User | null>(null)
 
 
 
- 
-  const filteredUsers = mockUsers.filter((u) => {
+  const safeUsers: User[] = Array.isArray(users) ? users : []
+  const filteredUsers = safeUsers.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.company.toLowerCase().includes(searchTerm.toLowerCase())
+      u.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || u.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -120,26 +66,55 @@ export function UserManagement() {
     }
   }
 
-  const handleApproveUser = (userId: string) => {
-    console.log("[v0] Approving user:", userId)
-    // API call to approve user would go here
+  const handleApproveUser = async (userId: string) => {
+    try {
+      const updated = await updateUser(userId, { status: "active" })
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...updated } : u)))
+    } catch (e) {
+      console.error("Failed to approve user", e)
+    }
   }
 
-  const handleRejectUser = (userId: string) => {
-    console.log("[v0] Rejecting user:", userId)
-    // API call to reject user would go here
+  const handleRejectUser = async (userId: string) => {
+    try {
+      const updated = await updateUser(userId, { status: "inactive" })
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...updated } : u)))
+    } catch (e) {
+      console.error("Failed to reject user", e)
+    }
   }
 
-  const pendingCount = mockUsers.filter((u) => u.status === "pending").length
+  const pendingCount = safeUsers.filter((u) => u.status === "pending").length
 
 
-  useEffect(() => {
-  async function loadUsers() {
+  const normalizeUserRecord = (r: any): User => {
+    return {
+      id: r.id ?? r._id ?? "",
+      name: r.name ?? "",
+      email: r.email ?? "",
+      role: r.role ?? "party",
+      status: r.status ?? "pending",
+    }
+  }
+
+  const normalizeUserArray = (data: any): User[] => {
+    const arr = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.users)
+      ? data.users
+      : Array.isArray(data?.data)
+      ? data.data
+      : []
+    return arr.map(normalizeUserRecord)
+  }
+
+  const fetchAndSetUsers = async () => {
     try {
       setLoading(true)
       const data = await fetchAllUsers()
-      console.log("Fetched data:", data)
-      setUsers(data)
+      const normalized = normalizeUserArray(data)
+      console.log("Fetched data:", normalized)
+      setUsers(normalized)
     } catch (err) {
       console.error("Error fetching users:", err)
       setError("Failed to load users")
@@ -148,8 +123,59 @@ export function UserManagement() {
     }
   }
 
-  loadUsers()
-}, [])
+  useEffect(() => {
+    fetchAndSetUsers()
+  }, [])
+
+  // Debounced search using API
+  useEffect(() => {
+    const controller = new AbortController()
+    const timeout = setTimeout(async () => {
+      try {
+        if (searchTerm.trim().length === 0) {
+          await fetchAndSetUsers()
+        } else {
+          const results = await searchUsers(searchTerm.trim())
+          const normalized = normalizeUserArray(results)
+          setUsers(normalized)
+        }
+      } catch (e) {
+        console.error("Search failed", e)
+      }
+    }, 300)
+
+    return () => {
+      controller.abort()
+      clearTimeout(timeout)
+    }
+  }, [searchTerm])
+
+  const handleDelete = async (userId: string) => {
+    try {
+      await deleteUser(userId)
+      setUsers((prev) => prev.filter((u) => u.id !== userId))
+    } catch (e) {
+      console.error("Failed to delete user", e)
+    }
+  }
+
+  const openEditModal = (u: User) => {
+    const normalized = normalizeUserRecord(u)
+    setEditingUser(normalized)
+    setEditStatus(normalized.status)
+  }
+
+  const submitEdit = async () => {
+    if (!editingUser) return
+    try {
+      const updated = await updateUser(editingUser.id, { status: editStatus as any })
+      await fetchAndSetUsers()
+    } catch (e) {
+      console.error("Failed to update user", e)
+    } finally {
+      setEditingUser(null)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -229,8 +255,6 @@ export function UserManagement() {
                     <th className="text-left p-3 font-medium">User</th>
                     <th className="text-left p-3 font-medium">Role</th>
                     <th className="text-left p-3 font-medium">Status</th>
-                    <th className="text-left p-3 font-medium">Sessions</th>
-                    <th className="text-left p-3 font-medium">Last Login</th>
                     <th className="text-left p-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -244,7 +268,6 @@ export function UserManagement() {
                             <Mail className="w-3 h-3" />
                             {u.email}
                           </div>
-                          <div className="text-sm text-muted-foreground">{u.company}</div>
                         </div>
                       </td>
                       <td className="p-3">
@@ -256,15 +279,6 @@ export function UserManagement() {
                         <Badge className={getStatusColor(u.status)} variant="secondary">
                           {u.status}
                         </Badge>
-                      </td>
-                      <td className="p-3">
-                        <span className="font-medium">{u.sessionsCount}</span>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-1 text-sm">
-                          <Calendar className="w-3 h-3" />
-                          {u.lastLogin}
-                        </div>
                       </td>
                       <td className="p-3">
                         <div className="flex gap-1">
@@ -289,10 +303,10 @@ export function UserManagement() {
                             </>
                           ) : (
                             <>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" onClick={() => openEditModal(u)}>
                                 <Edit className="w-3 h-3" />
                               </Button>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" onClick={() => setDeletingUser(u)}>
                                 <Trash2 className="w-3 h-3" />
                               </Button>
                             </>
@@ -311,15 +325,13 @@ export function UserManagement() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
           <Card>
             <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-accent">{mockUsers.length}</div>
+              <div className="text-2xl font-bold text-accent">{users.length}</div>
               <div className="text-sm text-muted-foreground">Total Users</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {mockUsers.filter((u) => u.status === "active").length}
-              </div>
+              <div className="text-2xl font-bold text-green-600">{users.filter((u) => u.status === "active").length}</div>
               <div className="text-sm text-muted-foreground">Active Users</div>
             </CardContent>
           </Card>
@@ -331,13 +343,61 @@ export function UserManagement() {
           </Card>
           <Card>
             <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {mockUsers.filter((u) => u.role === "admin").length}
-              </div>
+              <div className="text-2xl font-bold text-purple-600">{users.filter((u) => u.role === "admin").length}</div>
               <div className="text-sm text-muted-foreground">Admin Users</div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Edit Status Modal */}
+        <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User Status</DialogTitle>
+              <DialogDescription>Only status can be updated by admin.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="text-sm">
+                <div className="text-muted-foreground">User</div>
+                <div className="font-medium">{editingUser?.name} ({editingUser?.email})</div>
+              </div>
+              <div>
+                <Select value={editStatus} onValueChange={setEditStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingUser(null)} className="bg-transparent">Cancel</Button>
+              <Button onClick={submitEdit}>Update</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <Dialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete user?</DialogTitle>
+              <DialogDescription>Are you sure you want to delete this user? This action cannot be undone.</DialogDescription>
+            </DialogHeader>
+            <div className="text-sm">
+              <div className="text-muted-foreground">User</div>
+              <div className="font-medium">{deletingUser?.name} ({deletingUser?.email})</div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeletingUser(null)} className="bg-transparent">Cancel</Button>
+              <Button variant="destructive" onClick={async () => { if (deletingUser) { await handleDelete(deletingUser.id); setDeletingUser(null); await fetchAndSetUsers() } }}>Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )
