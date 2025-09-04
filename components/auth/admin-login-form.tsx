@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -27,6 +27,8 @@ export function AdminLoginForm() {
 
     try {
       const success = await login(email, password)
+
+      console.log(success,"success>>!23");
       if (success) {
         router.push("/admin")
       } else {
@@ -85,10 +87,10 @@ export function AdminLoginForm() {
           </Button>
         </form>
 
-        <div className="mt-6 p-4 bg-muted rounded-lg">
+        {/* <div className="mt-6 p-4 bg-muted rounded-lg">
           <p className="text-sm text-muted-foreground mb-2">Demo Admin:</p>
           <div className="text-xs font-mono">admin@demo.com / admin123</div>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   )

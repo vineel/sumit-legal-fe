@@ -1,11 +1,12 @@
 "use client"
 
-import { useAuth } from "@/components/auth-provider"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/components/auth-provider";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Shield,
   Users,
@@ -21,8 +22,9 @@ import {
   Download,
   RefreshCw,
   Zap,
-} from "lucide-react"
-import Link from "next/link"
+} from "lucide-react";
+import Link from "next/link";
+import {fetchDashboardStatus,DashboardStatusData } from "@/lib/admin";
 
 const mockStats = {
   totalUsers: 156,
@@ -65,8 +67,14 @@ const mockStats = {
   },
 }
 
+ 
+
 export function AdminDashboard() {
   const { user, logout } = useAuth()
+ const [status, setStatus] = useState<DashboardStatusData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -98,6 +106,27 @@ export function AdminDashboard() {
     }
   }
 
+
+  //    useEffect(() => {
+  //   setLoading(true)
+
+  //   fetchDashboardStatus()
+  //     .then((data) => {
+  //       setStatus(data)
+  //       console.log(data,"ddd")
+  //       setError(null)
+  //     })
+  //     .catch((err) => {
+  //       console.error("Error fetching dashboard status:", err)
+  //       setError("Failed to load dashboard status.")
+  //     })
+  //     .finally(() => {
+  //       setLoading(false)
+  //     })
+  // }, [])
+
+ 
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -111,7 +140,7 @@ export function AdminDashboard() {
               </div>
               <Badge variant="outline" className="gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                System Health: {mockStats.systemHealth}%
+                System Health: {mockStats?.systemHealth}%
               </Badge>
             </div>
             <div className="flex items-center gap-4">
@@ -151,11 +180,11 @@ export function AdminDashboard() {
                   <Users className="w-6 h-6 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-2xl font-bold">{mockStats.totalUsers}</p>
+                  <p className="text-2xl font-bold">{mockStats?.totalUsers}</p>
                   <p className="text-sm text-muted-foreground">Total Users</p>
                   <div className="flex items-center gap-1 mt-1">
                     <TrendingUp className="w-3 h-3 text-green-500" />
-                    <span className="text-xs text-green-600">+{mockStats.monthlyGrowth}% this month</span>
+                    <span className="text-xs text-green-600">+{mockStats?.monthlyGrowth}% this month</span>
                   </div>
                 </div>
               </div>
@@ -169,9 +198,9 @@ export function AdminDashboard() {
                   <Activity className="w-6 h-6 text-green-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-2xl font-bold">{mockStats.activeSessions}</p>
+                  <p className="text-2xl font-bold">{mockStats?.activeSessions}</p>
                   <p className="text-sm text-muted-foreground">Active Sessions</p>
-                  <p className="text-xs text-muted-foreground mt-1">Avg: {mockStats.avgResolutionTime}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Avg: {mockStats?.avgResolutionTime}</p>
                 </div>
               </div>
             </CardContent>
@@ -184,9 +213,9 @@ export function AdminDashboard() {
                   <Database className="w-6 h-6 text-purple-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-2xl font-bold">{mockStats.totalClauses}</p>
+                  <p className="text-2xl font-bold">{mockStats?.totalClauses}</p>
                   <p className="text-sm text-muted-foreground">Clause Variants</p>
-                  <p className="text-xs text-green-600 mt-1">{mockStats.successRate}% success rate</p>
+                  <p className="text-xs text-green-600 mt-1">{mockStats?.successRate}% success rate</p>
                 </div>
               </div>
             </CardContent>
@@ -199,10 +228,10 @@ export function AdminDashboard() {
                   <FileText className="w-6 h-6 text-orange-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-2xl font-bold">{mockStats.totalTemplates}</p>
+                  <p className="text-2xl font-bold">{mockStats?.totalTemplates}</p>
                   <p className="text-sm text-muted-foreground">Templates</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {mockStats.analytics.sessionsThisWeek} sessions this week
+                    {mockStats?.analytics?.sessionsThisWeek} sessions this week
                   </p>
                 </div>
               </div>

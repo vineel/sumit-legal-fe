@@ -1,6 +1,6 @@
-"use client"
+ "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Search, Edit, Trash2, Mail, Calendar, Check, X, Clock } from "lucide-react"
 import Link from "next/link"
+import { fetchAllUsers } from "@/lib/admin"
 
 // Mock user data with pending approval status
 const mockUsers = [
@@ -73,11 +74,35 @@ const mockUsers = [
   },
 ]
 
+
 export function UserManagement() {
   const { user, logout } = useAuth()
+    const [users, setUsers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
+
+
+useEffect(() => {
+  async function loadUsers() {
+    try {
+      setLoading(true)
+      const data = await fetchAllUsers()
+      console.log("Fetched data:", data)
+      setUsers(data)
+    } catch (err) {
+      console.error("Error fetching users:", err)
+      setError("Failed to load users")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  loadUsers()
+}, [])
   const filteredUsers = mockUsers.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

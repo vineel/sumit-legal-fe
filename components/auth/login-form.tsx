@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -20,24 +20,40 @@ export function LoginForm() {
   const { login } = useAuth()
   const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault()
+  //   setError("")
+  //   setIsLoading(true)
 
-    try {
-      const success = await login(email, password)
-      if (success) {
-        router.push("/dashboard")
-      } else {
-        setError("Invalid email or password")
-      }
-    } catch (err) {
-      setError("An error occurred. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
+  //   try {
+  //     const success = await login(email, password)
+  //     if (success) {
+  //       router.push("/dashboard")
+  //     } else {
+  //       setError("Invalid email or password")
+  //     }
+  //   } catch (err) {
+  //     setError("An error occurred. Please try again.")
+  //   } finally {
+  //     setIsLoading(false)
+  //   }
+  // }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setError("")
+  setIsLoading(true)
+
+  const success = await login(email, password)
+
+  if (success) {
+    router.push("/dashboard")
+  } else {
+    setError("Invalid email or password")
   }
+
+  setIsLoading(false)
+}
+
 
   return (
     <Card className="w-full max-w-md">
@@ -94,13 +110,13 @@ export function LoginForm() {
           </div>
         </div>
 
-        <div className="mt-6 p-4 bg-muted rounded-lg">
+        {/* <div className="mt-6 p-4 bg-muted rounded-lg">
           <p className="text-sm text-muted-foreground mb-2">Demo Accounts:</p>
           <div className="space-y-1 text-xs font-mono">
             <div>party1@demo.com / demo123</div>
             <div>party2@demo.com / demo123</div>
           </div>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   )

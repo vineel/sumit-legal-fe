@@ -1,10 +1,9 @@
 "use client"
 
-import type React from "react"
-
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import * as React from "react"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -12,35 +11,42 @@ interface ProtectedRouteProps {
   redirectTo?: string
 }
 
-export function ProtectedRoute({ children, requiredRole, redirectTo = "/login" }: ProtectedRouteProps) {
+export function ProtectedRoute({
+  children,
+  requiredRole,
+  redirectTo = "/login",
+}: ProtectedRouteProps) {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+  const [hasMounted, setHasMounted] = useState(false)
+
+  // Ensure component is only rendered on the client to avoid hydration issues
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && hasMounted) {
       if (!user) {
         router.push(redirectTo)
         return
       }
 
       if (requiredRole && user.role !== requiredRole) {
-        if (user.role === "admin") {
-          router.push("/admin")
-        } else {
-          router.push("/dashboard")
-        }
-        return
+        router.push(user.role === "admin" ? "/admin" : "/dashboard")
       }
     }
-  }, [user, isLoading, requiredRole, redirectTo, router])
+  }, [user, isLoading, hasMounted, requiredRole, redirectTo, router])
+
+  // Return null during server-side rendering and initial hydration
+  if (!hasMounted) {
+    return null
+  }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+      <div>
+        <p>Loading...</p>
       </div>
     )
   }
