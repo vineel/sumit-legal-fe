@@ -27,6 +27,19 @@ export interface SearchResult {
    status: string;
 }
 
+export interface TemplateUsageStat {
+  templateId: string;
+  templatename: string;
+  usageCount: number;
+}
+
+export interface TemplateStatsData {
+  totalTemplates: number;
+  activeTemplates: number;
+  totalUsage: number;
+  usageStats: TemplateUsageStat[];
+}
+
 export const searchUsers = async (query: string): Promise<SearchResult[]> => {
   const response = await api.get<SearchResult[]>(`/admin/search`, {
     params: { query }
@@ -59,4 +72,16 @@ export const updateUser = async (
 export const deleteUser = async (userId: string): Promise<{ success: boolean; message: string }> => {
   const response = await api.delete<{ success: boolean; message: string }>(`/admin/deleteUser/${userId}`);
   return response.data;
+};
+
+
+export const fetchTemplateStats = async (): Promise<TemplateStatsData> => {
+  const response = await api.get<TemplateStatsData>("/admin/template/template-stats");
+  return response.data;
+};
+
+
+export const downloadTemplate = async (id: string): Promise<string> => {
+  const res = await api.get(`/api/admin/template/download/${id}`);
+  return res.data.url; // presigned URL
 };

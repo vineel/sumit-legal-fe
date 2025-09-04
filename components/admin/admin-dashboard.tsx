@@ -26,6 +26,7 @@ import {
 import Link from "next/link";
 import {fetchDashboardStatus,DashboardStatusData } from "@/lib/admin";
 
+
 const mockStats = {
   totalUsers: 156,
   activeSessions: 23,
@@ -107,23 +108,23 @@ export function AdminDashboard() {
   }
 
 
-  //    useEffect(() => {
-  //   setLoading(true)
+     useEffect(() => {
+    setLoading(true)
 
-  //   fetchDashboardStatus()
-  //     .then((data) => {
-  //       setStatus(data)
-  //       console.log(data,"ddd")
-  //       setError(null)
-  //     })
-  //     .catch((err) => {
-  //       console.error("Error fetching dashboard status:", err)
-  //       setError("Failed to load dashboard status.")
-  //     })
-  //     .finally(() => {
-  //       setLoading(false)
-  //     })
-  // }, [])
+    fetchDashboardStatus()
+      .then((data) => {
+        setStatus(data)
+        console.log(data,"ddd")
+        setError(null)
+      })
+      .catch((err) => {
+        console.error("Error fetching dashboard status:", err)
+        setError("Failed to load dashboard status.")
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [])
 
  
 
@@ -180,11 +181,14 @@ export function AdminDashboard() {
                   <Users className="w-6 h-6 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-2xl font-bold">{mockStats?.totalUsers}</p>
+                  <p className="text-2xl font-bold">
+                    {/* {mockStats?.totalUsers} */}
+                     {status?.totalUsers}
+                  </p>
                   <p className="text-sm text-muted-foreground">Total Users</p>
                   <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-green-500" />
-                    <span className="text-xs text-green-600">+{mockStats?.monthlyGrowth}% this month</span>
+                    {/* <TrendingUp className="w-3 h-3 text-green-500" /> */}
+                    {/* <span className="text-xs text-green-600">+{mockStats?.monthlyGrowth}% this month</span> */}
                   </div>
                 </div>
               </div>
@@ -198,9 +202,12 @@ export function AdminDashboard() {
                   <Activity className="w-6 h-6 text-green-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-2xl font-bold">{mockStats?.activeSessions}</p>
-                  <p className="text-sm text-muted-foreground">Active Sessions</p>
-                  <p className="text-xs text-muted-foreground mt-1">Avg: {mockStats?.avgResolutionTime}</p>
+                  <p className="text-2xl font-bold">
+                    {/* {mockStats?.activeSessions} */}
+                            {status?.activeUsers}
+                    </p>
+                  <p className="text-sm text-muted-foreground">Active Users</p>
+                  {/* <p className="text-xs text-muted-foreground mt-1">Avg: {mockStats?.avgResolutionTime}</p> */}
                 </div>
               </div>
             </CardContent>
@@ -213,9 +220,13 @@ export function AdminDashboard() {
                   <Database className="w-6 h-6 text-purple-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-2xl font-bold">{mockStats?.totalClauses}</p>
+                  <p className="text-2xl font-bold">
+           
+                       {status?.totalClauses}
+                    
+                    </p>
                   <p className="text-sm text-muted-foreground">Clause Variants</p>
-                  <p className="text-xs text-green-600 mt-1">{mockStats?.successRate}% success rate</p>
+                  {/* <p className="text-xs text-green-600 mt-1">{mockStats?.successRate}% success rate</p> */}
                 </div>
               </div>
             </CardContent>
@@ -228,11 +239,13 @@ export function AdminDashboard() {
                   <FileText className="w-6 h-6 text-orange-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-2xl font-bold">{mockStats?.totalTemplates}</p>
+                  <p className="text-2xl font-bold">
+                  {status?.totalTemplates}
+                    </p>
                   <p className="text-sm text-muted-foreground">Templates</p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  {/* <p className="text-xs text-muted-foreground mt-1">
                     {mockStats?.analytics?.sessionsThisWeek} sessions this week
-                  </p>
+                  </p> */}
                 </div>
               </div>
             </CardContent>
