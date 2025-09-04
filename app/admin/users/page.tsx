@@ -3,7 +3,7 @@ import { UserManagement } from "@/components/admin/user-management"
 
 export default function UsersPage() {
   return (
-    <ProtectedRoute requiredRole="admin">
+    <ProtectedRoute requiredRole="admin" redirectTo="/admin/login">
       <UserManagement />
     </ProtectedRoute>
   )

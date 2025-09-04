@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,15 @@ export function LoginForm() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const router = useRouter()
+  // If already logged in as admin, block user login and send to admin dashboard
+  useEffect(() => {
+    if (user && user.role === "admin") {
+      router.replace("/admin")
+    }
+  }, [user, router])
+
 
   // const handleSubmit = async (e: React.FormEvent) => {
   //   e.preventDefault()

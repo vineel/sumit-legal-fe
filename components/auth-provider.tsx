@@ -28,16 +28,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // On load, try to get user from token
+    // Prehydrate user from localStorage to avoid redirect flicker on refresh
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser) as User
+        setUser(normalizeUser(parsed))
+      } catch {}
+    }
+
+    // Then validate token with backend and refresh user info
     const token = localStorage.getItem("auth_token")
     if (token) {
       getMe()
-        .then((user) => {
-          setUser(user)
+        .then((remoteUser) => {
+          const normalized = normalizeUser(remoteUser as unknown as User)
+          setUser(normalized)
+          localStorage.setItem("user", JSON.stringify(normalized))
         })
         .catch(() => {
           localStorage.removeItem("auth_token")
           localStorage.removeItem("user")
+          setUser(null)
         })
         .finally(() => setIsLoading(false))
     } else {
@@ -49,8 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await signin({ email, password })
       localStorage.setItem("auth_token", data.token)
-      localStorage.setItem("user", JSON.stringify(data.user))
-      setUser(data.user)
+      const normalized = normalizeUser(data.user as unknown as User)
+      localStorage.setItem("user", JSON.stringify(normalized))
+      setUser(normalized)
       return true
     } catch (err) {
       return false
@@ -61,8 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await signupAPI({ name, email, password })
       localStorage.setItem("auth_token", data.token)
-      localStorage.setItem("user", JSON.stringify(data.user))
-      setUser(data.user)
+      const normalized = normalizeUser(data.user as unknown as User)
+      localStorage.setItem("user", JSON.stringify(normalized))
+      setUser(normalized)
       return true
     } catch (err) {
       return false
@@ -103,6 +117,15 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
+}
+
+function normalizeUserRole(role: string): UserRole {
+  const lower = (role || "").toLowerCase()
+  return lower === "admin" ? "admin" : "party"
+}
+
+function normalizeUser(u: User): User {
+  return { ...u, role: normalizeUserRole((u as unknown as { role: string }).role) }
 }
 
 

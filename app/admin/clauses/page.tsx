@@ -3,7 +3,7 @@ import { ClauseManagement } from "@/components/admin/clause-management"
 
 export default function ClausesPage() {
   return (
-    <ProtectedRoute requiredRole="admin">
+    <ProtectedRoute requiredRole="admin" redirectTo="/admin/login">
       <ClauseManagement />
     </ProtectedRoute>
   )

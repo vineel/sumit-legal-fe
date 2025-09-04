@@ -3,7 +3,7 @@ import { AuditLogs } from "@/components/admin/audit-logs"
 
 export default function AuditPage() {
   return (
-    <ProtectedRoute requiredRole="admin">
+    <ProtectedRoute requiredRole="admin" redirectTo="/admin/login">
       <AuditLogs />
     </ProtectedRoute>
   )

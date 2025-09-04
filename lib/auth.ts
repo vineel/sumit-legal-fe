@@ -35,6 +35,6 @@ export const signup = async (payload: SignupPayload): Promise<AuthResponse> => {
 
 // ✅ GET /auth/me (Requires Authorization header via Axios interceptor)
 export const getMe = async (): Promise<AuthResponse["user"]> => {
-  const response = await api.get<AuthResponse["user"]>("/auth/me");
-  return response.data;
+  const response = await api.get<{ success: boolean; user: AuthResponse["user"] }>("/auth/me");
+  return response.data.user;
 };
