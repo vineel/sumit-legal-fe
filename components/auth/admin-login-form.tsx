@@ -87,10 +87,7 @@ export function AdminLoginForm() {
           </Button>
         </form>
 
-        {/* <div className="mt-6 p-4 bg-muted rounded-lg">
-          <p className="text-sm text-muted-foreground mb-2">Demo Admin:</p>
-          <div className="text-xs font-mono">admin@demo.com / admin123</div>
-        </div> */}
+      
       </CardContent>
     </Card>
   )

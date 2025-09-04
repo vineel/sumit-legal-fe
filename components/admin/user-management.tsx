@@ -86,23 +86,7 @@ export function UserManagement() {
 
 
 
-useEffect(() => {
-  async function loadUsers() {
-    try {
-      setLoading(true)
-      const data = await fetchAllUsers()
-      console.log("Fetched data:", data)
-      setUsers(data)
-    } catch (err) {
-      console.error("Error fetching users:", err)
-      setError("Failed to load users")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  loadUsers()
-}, [])
+ 
   const filteredUsers = mockUsers.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -147,6 +131,25 @@ useEffect(() => {
   }
 
   const pendingCount = mockUsers.filter((u) => u.status === "pending").length
+
+
+  useEffect(() => {
+  async function loadUsers() {
+    try {
+      setLoading(true)
+      const data = await fetchAllUsers()
+      console.log("Fetched data:", data)
+      setUsers(data)
+    } catch (err) {
+      console.error("Error fetching users:", err)
+      setError("Failed to load users")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  loadUsers()
+}, [])
 
   return (
     <div className="min-h-screen bg-background">
