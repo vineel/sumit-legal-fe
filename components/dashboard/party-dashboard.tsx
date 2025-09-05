@@ -1,5 +1,3 @@
- 
-
 "use client"
 
 import { useAuth } from "@/components/auth-provider"
@@ -96,12 +94,6 @@ export function PartyDashboard() {
                 Start New Agreement
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="gap-2 bg-transparent">
-              <Link href="/collaboration">
-                <MessageSquare className="w-4 h-4" />
-                View Collaborations
-              </Link>
-            </Button>
           </div>
         </div>
 
@@ -158,7 +150,7 @@ export function PartyDashboard() {
                     <span>{session.lastActivity}</span>
                   </div>
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-2 justify-center">
                     {session.status === "draft" && (
                       <Button asChild size="sm" className="flex-1">
                         <Link href={`/intake?session=${session.id}`}>Continue</Link>
@@ -174,6 +166,12 @@ export function PartyDashboard() {
                         <Link href={`/document?session=${session.id}`}>View Document</Link>
                       </Button>
                     )}
+                    {/* View Collaborations button */}
+                    <Button asChild size="sm" variant="outline" className="flex-1 bg-transparent">
+                      <Link href={`/collaboration?session=${session.id}`}>
+                        View Collaborations
+                      </Link>
+                    </Button>
                     <Button asChild size="sm" variant="outline">
                       <Link href={`/session/${session.id}`}>Details</Link>
                     </Button>
@@ -206,7 +204,6 @@ export function PartyDashboard() {
 }
 
 
-
 // "use client"
 
 // import { useAuth } from "@/components/auth-provider"
@@ -229,22 +226,22 @@ export function PartyDashboard() {
 //   },
 //   {
 //     id: "2",
-//     title: "NDA with StartupXYZ",
+//     title: "SaaS Agreement with StartupXYZ",
 //     counterparty: "StartupXYZ",
 //     status: "in-progress" as const,
 //     progress: 85,
 //     lastActivity: "1 day ago",
-//     description: "Investment discussion confidentiality",
+//     description: "SaaS licensing and subscription terms",
 //     unresolvedClauses: 2,
 //   },
 //   {
 //     id: "3",
-//     title: "NDA with MegaCorp",
+//     title: "Professional Services Agreement with MegaCorp",
 //     counterparty: "MegaCorp",
 //     status: "resolved" as const,
 //     progress: 100,
 //     lastActivity: "3 days ago",
-//     description: "Acquisition due diligence",
+//     description: "Consulting engagement contract",
 //   },
 //   {
 //     id: "4",
@@ -291,7 +288,7 @@ export function PartyDashboard() {
 //         {/* Welcome Section */}
 //         <div className="mb-8">
 //           <h2 className="text-2xl font-heading font-bold text-foreground mb-2">Dashboard</h2>
-//           <p className="text-muted-foreground">Manage your NDA sessions and collaborations</p>
+//           <p className="text-muted-foreground">Manage your agreement sessions and collaborations</p>
 //         </div>
 
 //         {/* Quick Actions */}
@@ -300,7 +297,7 @@ export function PartyDashboard() {
 //             <Button asChild size="lg" className="gap-2">
 //               <Link href="/intake">
 //                 <Plus className="w-4 h-4" />
-//                 Start New NDA
+//                 Start New Agreement
 //               </Link>
 //             </Button>
 //             <Button asChild variant="outline" size="lg" className="gap-2 bg-transparent">
@@ -396,12 +393,12 @@ export function PartyDashboard() {
 //           <Card className="text-center py-12">
 //             <CardContent>
 //               <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-//               <CardTitle className="mb-2">No NDA Sessions Yet</CardTitle>
-//               <CardDescription className="mb-4">Start your first NDA collaboration to get started</CardDescription>
+//               <CardTitle className="mb-2">No Agreement Sessions Yet</CardTitle>
+//               <CardDescription className="mb-4">Start your first agreement collaboration to get started</CardDescription>
 //               <Button asChild>
 //                 <Link href="/intake">
 //                   <Plus className="w-4 h-4 mr-2" />
-//                   Create New NDA
+//                   Create New Agreement
 //                 </Link>
 //               </Button>
 //             </CardContent>
@@ -411,3 +408,4 @@ export function PartyDashboard() {
 //     </div>
 //   )
 // }
+

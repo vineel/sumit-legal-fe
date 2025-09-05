@@ -13,14 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+// Edit/Upload now use dedicated pages; dialog imports removed
 import {
   ArrowLeft,
   Upload,
@@ -31,34 +24,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { fetchTemplateStats, TemplateStatsData } from "@/lib/admin";
-import {
-  getAllTemplates,
-  Template,
-  addTemplate,
-  deleteTemplate,
-  updateTemplate,
-  downloadTemplate,
-} from "@/lib/templateApi";
+import { getAllTemplates, Template, deleteTemplate, downloadTemplate } from "@/lib/templateApi";
+import { getClauses, Clause } from "@/lib/clause";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function TemplateManagement() {
   const { user, logout } = useAuth();
-  const [isUploading, setIsUploading] = useState(false);
   const [stats, setStats] = useState<TemplateStatsData | null>(null);
   const [templates, setTemplates] = useState<Template[] | null>(null);
-  const [uploadForm, setUploadForm] = useState({
-    templatename: "",
-    description: "",
-    version: "",
-    file: null as File | null,
-  });
-  const [editTemplate, setEditTemplate] = useState<Template | null>(null);
-  const [editForm, setEditForm] = useState({
-    templatename: "",
-    description: "",
-    version: "",
-   active: true,
-    file: null as File | null,
-  });
+  // Local upload/edit state removed
 
   const refreshTemplates = async () => {
     try {
@@ -74,25 +48,8 @@ export function TemplateManagement() {
     refreshTemplates();
   }, []);
 
-  const openEditModal = (template: Template) => {
-    setEditTemplate(template);
-    setEditForm({
-      templatename: template.templatename,
-      description: template.description || "",
-      version: template.version,
-      file: null,
-      active: template.active ?? true, 
-    });
-  };
+  // Clause fetching removed from this page
 
-  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value, files } = e.target;
-    if (id === "file") {
-      setEditForm((prev) => ({ ...prev, file: files?.[0] || null }));
-    } else {
-      setEditForm((prev) => ({ ...prev, [id]: value }));
-    }
-  };
   const handleDownload = async (id: string) => {
     try {
       const url = await downloadTemplate(id);
@@ -103,26 +60,7 @@ export function TemplateManagement() {
     }
   };
 
-const handleEditSubmit = async () => {
-  if (!editTemplate) return;
-
-  const formData = new FormData();
-  formData.append("templatename", editForm.templatename);
-  formData.append("description", editForm.description);
-  formData.append("version", editForm.version);
-  formData.append("active", String(editForm.active)); // 👈 append active as string
-  if (editForm.file) {
-    formData.append("file", editForm.file);
-  }
-
-  try {
-    await updateTemplate(editTemplate._id, formData);
-    setEditTemplate(null); // close modal
-    await refreshTemplates();
-  } catch (error) {
-    console.error("Edit failed", error);
-  }
-};
+// Edit submit no longer used here
 
 
   const handleDelete = async (id: string) => {
@@ -135,41 +73,7 @@ const handleEditSubmit = async () => {
     }
   };
 
-  const handleUploadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value, files } = e.target;
-    if (id === "file") {
-      setUploadForm((prev) => ({ ...prev, file: files?.[0] || null }));
-    } else {
-      setUploadForm((prev) => ({ ...prev, [id]: value }));
-    }
-  };
-
-  const handleUploadSubmit = async () => {
-    if (!uploadForm.templatename || !uploadForm.version || !uploadForm.file) {
-      alert("Please fill all required fields.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("templatename", uploadForm.templatename);
-    formData.append("description", uploadForm.description);
-    formData.append("version", uploadForm.version);
-    formData.append("file", uploadForm.file);
-
-    try {
-      await addTemplate(formData);
-      setIsUploading(false);
-      setUploadForm({
-        templatename: "",
-        description: "",
-        version: "",
-        file: null,
-      });
-      await refreshTemplates(); // refetch templates
-    } catch (error) {
-      console.error("Upload failed", error);
-    }
-  };
+  // Upload handlers removed
 
   useEffect(() => {
     const getStats = async () => {
@@ -238,72 +142,12 @@ const handleEditSubmit = async () => {
               Manage NDA templates and document structures
             </p>
           </div>
-          <Dialog open={isUploading} onOpenChange={setIsUploading}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Upload className="w-4 h-4" />
-                Upload Template
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Upload New Template</DialogTitle>
-                <DialogDescription>
-                  Upload a new NDA template or document structure
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="templatename">Template Name</Label>
-                  <Input
-                    id="templatename"
-                    value={uploadForm.templatename}
-                    onChange={handleUploadChange}
-                    placeholder="e.g., Enterprise NDA Template"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    value={uploadForm.description}
-                    onChange={handleUploadChange}
-                    placeholder="Brief description of this template..."
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="version">Version</Label>
-                  <Input
-                    id="version"
-                    value={uploadForm.version}
-                    onChange={handleUploadChange}
-                    placeholder="e.g., 1.0"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="file">Template File</Label>
-                  <Input
-                    id="file"
-                    type="file"
-                    accept=".docx,.pdf,.json"
-                    onChange={handleUploadChange}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supported formats: DOCX, PDF, JSON structure files
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleUploadSubmit}>Upload Template</Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsUploading(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button asChild className="gap-2">
+            <Link href="/admin/templates/upload">
+              <Upload className="w-4 h-4" />
+              Upload Template
+            </Link>
+          </Button>
         </div>
 
         {/* Templates Grid */}
@@ -366,14 +210,11 @@ const handleEditSubmit = async () => {
                     Download
                   </Button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2 bg-transparent"
-                    onClick={() => openEditModal(template)}
-                  >
-                    <Edit className="w-3 h-3" />
-                    Edit
+                  <Button asChild size="sm" variant="outline" className="gap-2 bg-transparent">
+                    <Link href={`/admin/templates/${template._id}/edit`}>
+                      <Edit className="w-3 h-3" />
+                      Edit
+                    </Link>
                   </Button>
                   <Button
                     size="sm"
@@ -390,75 +231,7 @@ const handleEditSubmit = async () => {
           ))}
         </div>
 
-      {editTemplate && (
-  <Dialog open={!!editTemplate} onOpenChange={() => setEditTemplate(null)}>
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Edit Template</DialogTitle>
-        <DialogDescription>Update the selected template details</DialogDescription>
-      </DialogHeader>
-
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="templatename">Template Name</Label>
-          <Input
-            id="templatename"
-            value={editForm.templatename}
-            onChange={handleEditChange}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="description">Description</Label>
-          <Input
-            id="description"
-            value={editForm.description}
-            onChange={handleEditChange}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="version">Version</Label>
-          <Input
-            id="version"
-            value={editForm.version}
-            onChange={handleEditChange}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="file">Replace Template File (optional)</Label>
-          <Input id="file" type="file" onChange={handleEditChange} />
-        </div>
-
-        {/* ✅ Active Toggle */}
- <div className="max-w-[100px]">
-  <Label htmlFor="active">Active Status</Label>
-  <select
-    id="active"
-    value={editForm.active ? "true" : "false"}
-    onChange={(e) =>
-      setEditForm((prev) => ({ ...prev, active: e.target.value === "true" }))
-    }
-    className="w-full border rounded px-2 py-1 mt-1 text-sm"
-  >
-    <option value="true">Active</option>
-    <option value="false">Inactive</option>
-  </select>
-</div>
-
-
-
-        <div className="flex gap-2">
-          <Button onClick={handleEditSubmit}>Save Changes</Button>
-          <Button variant="outline" onClick={() => setEditTemplate(null)}>
-            Cancel
-          </Button>
-        </div>
-      </div>
-    </DialogContent>
-  </Dialog>
-)}
+      {/* Edit handled on dedicated page */}
 
 
         {/* Template Statistics */}

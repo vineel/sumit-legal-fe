@@ -21,8 +21,15 @@ export interface ClauseVariant {
   name: string;
   riskLevel: "low" | "medium" | "high";
   legalText: string;
-  status: "active" | "drafted" | "deprecated";
+  status: "active" | "inactive";
   version: number;
+}
+
+export interface Pagination {
+  totalClauses: number;
+  currentPage: number;
+  totalPages: number;
+  limit: number;
 }
 
 // ✅ Create a new clause
@@ -32,8 +39,13 @@ export async function createClause(payload: ClausePayload): Promise<Clause> {
 }
 
 // ✅ Get all clauses
-export async function getClauses(): Promise<Clause[]> {
-  const { data } = await api.get("/admin/clause/getall");
+export async function getClauses(page: number = 1, limit: number = 10): Promise<{ clauses: Clause[], pagination: Pagination }> {
+  // Send the page and limit as query parameters
+  const { data } = await api.get("/admin/clause/getall", {
+    params: { page, limit },
+  });
+  
+  // Return the clauses along with pagination metadata
   return data;
 }
 

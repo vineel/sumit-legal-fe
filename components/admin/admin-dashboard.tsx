@@ -139,10 +139,10 @@ export function AdminDashboard() {
                 <Shield className="w-6 h-6 text-accent" />
                 <h1 className="text-xl font-heading font-semibold">Admin Dashboard</h1>
               </div>
-              <Badge variant="outline" className="gap-1">
+              {/* <Badge variant="outline" className="gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 System Health: {mockStats?.systemHealth}%
-              </Badge>
+              </Badge> */}
             </div>
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="sm" className="gap-2">

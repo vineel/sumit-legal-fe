@@ -1,5 +1,21 @@
 import api from "./api"; 
 
+export interface Clause {
+  _id: string;
+  name: string;
+  category: string;
+  description?: string;
+  required: boolean;
+  status: "active" | "inactive";
+  variants: {
+    name: string;
+    riskLevel: "low" | "medium" | "high";
+    legalText: string;
+    status: "active" | "inactive";
+    version: number;
+  }[];
+}
+
 export interface Template {
   _id: string;
   userid: string;
@@ -10,7 +26,9 @@ export interface Template {
   templatefile: string;
   createdAt: string;
   updatedAt: string;
-  clauseUsageCount?: number;  
+  clauseUsageCount?: number;
+  isCustom?: boolean;
+  clauses?: Clause[]; // 👈 add populated clauses
 }
 
 // Add new template (with file upload)
@@ -49,4 +67,11 @@ export const deleteTemplate = async (id: string): Promise<{ message: string }> =
 export const downloadTemplate = async (id: string): Promise<string> => {
   const res = await api.get(`/admin/template/download/${id}`);
   return res.data.url; // presigned URL
+};
+
+
+ 
+export const getTemplateById = async (id: string): Promise<Template> => {
+  const response = await api.get<Template>(`/admin/template/single/${id}`);
+  return response.data;
 };
