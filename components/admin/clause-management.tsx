@@ -34,6 +34,7 @@ import {
   CheckCircle,
 } from "lucide-react"
 import Link from "next/link"
+import { createClause, getClauses, Clause } from "@/lib/clause";
 
 const mockClauses = [
   {
@@ -139,6 +140,7 @@ export function ClauseManagement() {
   const [activeTab, setActiveTab] = useState("clauses")
   const [statusFilter, setStatusFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
+   const [clauses, setClauses] = useState<Clause[]>([]);
 
   const filteredClauses = mockClauses.filter((clause) => {
     const matchesSearch =
@@ -333,12 +335,12 @@ export function ClauseManagement() {
                 <DialogTrigger asChild>
                   <Button className="gap-2">
                     <Plus className="w-4 h-4" />
-                    Add Clause Type
+                    Add Clause
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Add New Clause Type</DialogTitle>
+                    <DialogTitle>Add New Clause</DialogTitle>
                     <DialogDescription>Create a new clause type with comprehensive metadata</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
