@@ -17,6 +17,7 @@ export interface Clause {
 }
 
 export interface Template {
+  clauseIds: never[];
   _id: string;
   userid: string;
   templatename: string;

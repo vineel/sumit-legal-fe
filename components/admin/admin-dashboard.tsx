@@ -24,7 +24,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import {fetchDashboardStatus,DashboardStatusData } from "@/lib/admin";
+import {fetchDashboardStatus,DashboardStatusData,allactivitylogs  } from "@/lib/admin";
 
 
 const mockStats = {
@@ -40,6 +40,12 @@ const mockStats = {
     { action: "New user registered", user: "john@company.com", time: "2 hours ago", type: "user" },
     { action: "Clause bank updated", user: "admin@demo.com", time: "4 hours ago", type: "system" },
     { action: "NDA session completed", user: "sarah@startup.com", time: "6 hours ago", type: "session" },
+    { action: "Template uploaded", user: "admin@demo.com", time: "1 day ago", type: "template" },
+    { action: "AI model updated", user: "system", time: "2 days ago", type: "ai" },
+      { action: "NDA session completed", user: "sarah@startup.com", time: "6 hours ago", type: "session" },
+    { action: "Template uploaded", user: "admin@demo.com", time: "1 day ago", type: "template" },
+    { action: "AI model updated", user: "system", time: "2 days ago", type: "ai" },
+      { action: "NDA session completed", user: "sarah@startup.com", time: "6 hours ago", type: "session" },
     { action: "Template uploaded", user: "admin@demo.com", time: "1 day ago", type: "template" },
     { action: "AI model updated", user: "system", time: "2 days ago", type: "ai" },
   ],
@@ -68,6 +74,13 @@ const mockStats = {
   },
 }
 
+
+interface ActivityLog {
+  _id: string;
+  usr_id: { _id: string; name: string; email: string };
+  type: string;
+  timestamp: string;
+}
  
 
 export function AdminDashboard() {
@@ -75,7 +88,10 @@ export function AdminDashboard() {
  const [status, setStatus] = useState<DashboardStatusData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+ 
+const [isLoading, setIsLoading] = useState(true);
+const [fetchError, setFetchError] = useState<string | null>(null);
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -107,7 +123,25 @@ export function AdminDashboard() {
     }
   }
 
-
+useEffect(() => {
+  async function fetchActivityLogs() {
+    try {
+      const data = await allactivitylogs();
+      console.log(data,"data>>>!23");
+      if (data?.success) {
+        setActivities(data?.data);
+      } else {
+        setFetchError("Failed to load activities");
+      }
+    } catch (err) {
+      setFetchError("Error loading activities");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+  fetchActivityLogs();
+}, []);
      useEffect(() => {
     setLoading(true)
 
@@ -145,14 +179,14 @@ export function AdminDashboard() {
               </Badge> */}
             </div>
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" className="gap-2">
+              {/* <Button variant="ghost" size="sm" className="gap-2">
                 <RefreshCw className="w-4 h-4" />
                 Refresh
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+              </Button> */}
+              {/* <Button variant="outline" size="sm" className="gap-2 bg-transparent">
                 <Download className="w-4 h-4" />
                 Export Report
-              </Button>
+              </Button> */}
               <span className="text-sm text-muted-foreground">Welcome, {user?.name}</span>
               <Button variant="outline" size="sm" onClick={logout}>
                 Sign Out
@@ -253,11 +287,11 @@ export function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="overview" className="mb-8">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="management">Management</TabsTrigger>
-            <TabsTrigger value="system">System</TabsTrigger>
+         
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -325,76 +359,71 @@ export function AdminDashboard() {
             </div>
 
             {/* Recent Activity & Alerts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Enhanced Recent Activity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Recent Activity
-                  </CardTitle>
-                  <CardDescription>Latest system events and user actions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockStats.recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        {getActivityIcon(activity.type)}
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium text-sm">{activity.action}</p>
-                              <p className="text-xs text-muted-foreground">{activity.user}</p>
-                            </div>
-                            <span className="text-xs text-muted-foreground">{activity.time}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4">
-                    <Button asChild variant="outline" size="sm" className="w-full bg-transparent">
-                      <Link href="/admin/audit">View Full Audit Log</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Enhanced System Alerts */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5" />
-                    System Alerts
-                  </CardTitle>
-                  <CardDescription>Important notifications and warnings</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockStats.systemAlerts.map((alert, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <div
-                          className={`w-2 h-2 rounded-full mt-2 ${
-                            alert.type === "warning" ? "bg-yellow-500" : "bg-blue-500"
-                          }`}
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm">{alert.message}</p>
-                          <div className="flex gap-2 mt-1">
-                            <Badge variant={alert.type === "warning" ? "destructive" : "secondary"} className="text-xs">
-                              {alert.count} item{alert.count > 1 ? "s" : ""}
-                            </Badge>
-                            <Badge variant="outline" className={`text-xs ${getPriorityColor(alert.priority)}`}>
-                              {alert.priority} priority
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  {/* Enhanced Recent Activity */}
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Clock className="w-5 h-5" />
+        Recent Activity
+      </CardTitle>
+      <CardDescription>Latest system events and user actions</CardDescription>
+    </CardHeader>
+    <CardContent>
+      {/* <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
+        {mockStats.recentActivity.map((activity, index) => (
+          <div key={index} className="flex items-start gap-3">
+            {getActivityIcon(activity.type)}
+            <div className="flex-1">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-medium text-sm">{activity.action}</p>
+                  <p className="text-xs text-muted-foreground">{activity.user}</p>
+                </div>
+                <span className="text-xs text-muted-foreground">{activity.time}</span>
+              </div>
             </div>
+          </div>
+        ))}
+      </div> */}
+      <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
+  {activities.length === 0 ? (
+    <p className="text-muted-foreground text-sm">No recent activity found.</p>
+  ) : (
+    activities.map((activity) => (
+      <div key={activity._id} className="flex items-start gap-3">
+        {getActivityIcon(activity.type)}
+        <div className="flex-1">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-medium text-sm">{activity.type.replace(/_/g, " ")}</p>
+              <p className="text-xs text-muted-foreground">
+                {activity.usr_id?.name || activity.usr_id?.email || "Unknown user"}
+              </p>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {new Date(activity.timestamp).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      </div>
+    ))
+  )}
+</div>
+
+      {/* <div className="mt-4">
+        <Button asChild variant="outline" size="sm" className="w-full bg-transparent">
+          <Link href="/admin/audit">View Full Audit Log</Link>
+        </Button>
+      </div> */}
+    </CardContent>
+  </Card>
+  
+
+  {/* Enhanced System Alerts */}
+  {/* ...system alerts card (optional) */}
+</div>
+
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
@@ -514,7 +543,7 @@ export function AdminDashboard() {
             </div>
           </TabsContent>
 
-          <TabsContent value="system" className="space-y-6">
+          {/* <TabsContent value="system" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
                 <CardHeader>
@@ -587,7 +616,7 @@ export function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+          </TabsContent> */}
         </Tabs>
       </main>
     </div>

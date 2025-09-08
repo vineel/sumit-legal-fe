@@ -85,3 +85,10 @@ export const downloadTemplate = async (id: string): Promise<string> => {
   const res = await api.get(`/api/admin/template/download/${id}`);
   return res.data.url; // presigned URL
 };
+
+export const allactivitylogs = async (): Promise<any> => {
+  const res = await api.get(`/admin/allactivitylogs`);
+  return res.data; // probably an object, not string
+};
+
+ 
