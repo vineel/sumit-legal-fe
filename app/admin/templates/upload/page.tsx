@@ -35,22 +35,24 @@ export default function UploadTemplatePage() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewClause, setPreviewClause] = useState<Clause | null>(null)
 
-  const [customClause, setCustomClause] = useState({
-    name: "",
-    category: "Core Structure",
-    description: "",
-    required: false,
-    status: "active" as "active" | "inactive",
-    variants: [
-      {
-        name: "",
-        riskLevel: "low" as "low" | "medium" | "high",
-        legalText: "",
-        status: "active" as "active" | "inactive",
-        version: 1,
-      },
-    ],
-  })
+  const [customClauses, setCustomClauses] = useState([
+    {
+      name: "",
+      category: "Core Structure",
+      description: "",
+      required: false,
+      status: "active" as "active" | "inactive",
+      variants: [
+        {
+          name: "",
+          riskLevel: "low" as "low" | "medium" | "high",
+          legalText: "",
+          status: "active" as "active" | "inactive",
+          version: 1,
+        },
+      ],
+    },
+  ])
 
   useEffect(() => {
     const fetchClauses = async () => {
@@ -90,11 +92,7 @@ export default function UploadTemplatePage() {
     }
   }
 
-  const isCustomValid =
-    !!customClause.name &&
-    !!customClause.description &&
-    customClause.variants.length > 0 &&
-    customClause.variants.every(v => v.name && v.legalText)
+  const isCustomValid = customClauses.length > 0 && customClauses.every(cc => cc.name && cc.description && cc.variants.length > 0 && cc.variants.every(v => v.name && v.legalText))
 
 const onSubmit = async () => {
   if (!uploadForm.templatename || !uploadForm.version || !uploadForm.file) return
@@ -113,7 +111,12 @@ const onSubmit = async () => {
   if (clauseMode === "existing") {
     formData.append("clauseIds", JSON.stringify(selectedClauseIds))
   } else if (clauseMode === "custom") {
-    formData.append("customClause", JSON.stringify(customClause))
+    // send multiple
+    if (customClauses.length === 1) {
+      formData.append("customClause", JSON.stringify(customClauses[0]))
+    } else {
+      formData.append("customClauses", JSON.stringify(customClauses))
+    }
   }
 
   try {
@@ -271,114 +274,167 @@ const onSubmit = async () => {
             )}
 
             {clauseMode === "custom" && (
-              <div className="space-y-4 border rounded-md p-4">
-                <div className="text-sm font-medium">Custom Clause</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Clause Name</Label>
-                    <Input value={customClause.name} onChange={(e) => setCustomClause({ ...customClause, name: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Category</Label>
-                    <Select value={customClause.category} onValueChange={(v) => setCustomClause({ ...customClause, category: v })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Core Structure">Core Structure</SelectItem>
-                        <SelectItem value="Legal Framework">Legal Framework</SelectItem>
-                        <SelectItem value="Obligations">Obligations</SelectItem>
-                        <SelectItem value="Restrictions">Restrictions</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Description</Label>
-                  <Textarea value={customClause.description} onChange={(e) => setCustomClause({ ...customClause, description: e.target.value })} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                  <div className="flex gap-2 items-center">
-                    <input type="checkbox" id="cc_required" checked={customClause.required} onChange={(e) => setCustomClause({ ...customClause, required: e.target.checked })} />
-                    <Label htmlFor="cc_required">Required</Label>
-                  </div>
-                  <div>
-                    <Label>Status</Label>
-                    <Select value={customClause.status} onValueChange={(v: any) => setCustomClause({ ...customClause, status: v })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="text-sm font-medium pt-2">Custom Variants</div>
-                <div className="space-y-4">
-                  {customClause.variants.map((v, idx) => (
-                    <div key={idx} className="border rounded-md p-3 space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Variant Name</Label>
-                          <Input value={v.name} onChange={(e) => {
-                            const next = [...customClause.variants]; next[idx] = { ...next[idx], name: e.target.value }; setCustomClause({ ...customClause, variants: next })
-                          }} />
-                        </div>
-                        <div>
-                          <Label>Risk Level</Label>
-                          <Select value={v.riskLevel} onValueChange={(val: any) => {
-                            const next = [...customClause.variants]; next[idx] = { ...next[idx], riskLevel: val }; setCustomClause({ ...customClause, variants: next })
-                          }}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Legal Text</Label>
-                        <Textarea value={v.legalText} onChange={(e) => {
-                          const next = [...customClause.variants]; next[idx] = { ...next[idx], legalText: e.target.value }; setCustomClause({ ...customClause, variants: next })
-                        }} />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Variant Status</Label>
-                          <Select value={v.status} onValueChange={(val: any) => {
-                            const next = [...customClause.variants]; next[idx] = { ...next[idx], status: val }; setCustomClause({ ...customClause, variants: next })
-                          }}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Version</Label>
-                          <Input type="number" value={v.version} onChange={(e) => {
-                            const next = [...customClause.variants]; next[idx] = { ...next[idx], version: Number(e.target.value) || 1 }; setCustomClause({ ...customClause, variants: next })
-                          }} />
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
+              <div className="space-y-6">
+                {customClauses.map((cc, ccIdx) => (
+                  <div key={ccIdx} className="space-y-4 border rounded-md p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Custom Clause {ccIdx + 1}</div>
+                      <div className="flex gap-2">
+                        {customClauses.length > 1 && (
+                          <Button variant="outline" onClick={() => setCustomClauses(customClauses.filter((_, i) => i !== ccIdx))}>Remove Clause</Button>
+                        )}
                         <Button variant="outline" onClick={() => {
-                          const next = customClause.variants.filter((_, i) => i !== idx); setCustomClause({ ...customClause, variants: next })
-                        }}>Remove Variant</Button>
+                          const next = [...customClauses];
+                          next.splice(ccIdx + 1, 0, { name: "", category: "Core Structure", description: "", required: false, status: "active", variants: [{ name: "", riskLevel: "low", legalText: "", status: "active", version: 1 }] });
+                          setCustomClauses(next);
+                        }}>Duplicate</Button>
                       </div>
                     </div>
-                  ))}
-                  <Button variant="outline" onClick={() => setCustomClause({ ...customClause, variants: [...customClause.variants, { name: "", riskLevel: "low", legalText: "", status: "active", version: 1 }] })}>Add Variant</Button>
-                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Clause Name</Label>
+                        <Input value={cc.name} onChange={(e) => {
+                          const next = [...customClauses]; next[ccIdx] = { ...next[ccIdx], name: e.target.value }; setCustomClauses(next);
+                        }} />
+                      </div>
+                      <div>
+                        <Label>Category</Label>
+                        <Select value={cc.category} onValueChange={(v) => {
+                          const next = [...customClauses]; next[ccIdx] = { ...next[ccIdx], category: v }; setCustomClauses(next);
+                        }}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Core Structure">Core Structure</SelectItem>
+                            <SelectItem value="Legal Framework">Legal Framework</SelectItem>
+                            <SelectItem value="Obligations">Obligations</SelectItem>
+                            <SelectItem value="Restrictions">Restrictions</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea value={cc.description} onChange={(e) => {
+                        const next = [...customClauses]; next[ccIdx] = { ...next[ccIdx], description: e.target.value }; setCustomClauses(next);
+                      }} />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                      <div className="flex gap-2 items-center">
+                        <input type="checkbox" id={`cc_required_${ccIdx}`} checked={cc.required} onChange={(e) => {
+                          const next = [...customClauses]; next[ccIdx] = { ...next[ccIdx], required: e.target.checked }; setCustomClauses(next);
+                        }} />
+                        <Label htmlFor={`cc_required_${ccIdx}`}>Required</Label>
+                      </div>
+                      <div>
+                        <Label>Status</Label>
+                        <Select value={cc.status} onValueChange={(v: any) => {
+                          const next = [...customClauses]; next[ccIdx] = { ...next[ccIdx], status: v }; setCustomClauses(next);
+                        }}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium pt-2">Custom Variants</div>
+                    <div className="space-y-4">
+                      {cc.variants.map((v, idx) => (
+                        <div key={idx} className="border rounded-md p-3 space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label>Variant Name</Label>
+                              <Input value={v.name} onChange={(e) => {
+                                const next = [...customClauses];
+                                const nv = [...next[ccIdx].variants];
+                                nv[idx] = { ...nv[idx], name: e.target.value };
+                                next[ccIdx] = { ...next[ccIdx], variants: nv };
+                                setCustomClauses(next);
+                              }} />
+                            </div>
+                            <div>
+                              <Label>Risk Level</Label>
+                              <Select value={v.riskLevel} onValueChange={(val: any) => {
+                                const next = [...customClauses];
+                                const nv = [...next[ccIdx].variants];
+                                nv[idx] = { ...nv[idx], riskLevel: val };
+                                next[ccIdx] = { ...next[ccIdx], variants: nv };
+                                setCustomClauses(next);
+                              }}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="low">Low</SelectItem>
+                                  <SelectItem value="medium">Medium</SelectItem>
+                                  <SelectItem value="high">High</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div>
+                            <Label>Legal Text</Label>
+                            <Textarea value={v.legalText} onChange={(e) => {
+                              const next = [...customClauses];
+                              const nv = [...next[ccIdx].variants];
+                              nv[idx] = { ...nv[idx], legalText: e.target.value };
+                              next[ccIdx] = { ...next[ccIdx], variants: nv };
+                              setCustomClauses(next);
+                            }} />
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label>Variant Status</Label>
+                              <Select value={v.status} onValueChange={(val: any) => {
+                                const next = [...customClauses];
+                                const nv = [...next[ccIdx].variants];
+                                nv[idx] = { ...nv[idx], status: val };
+                                next[ccIdx] = { ...next[ccIdx], variants: nv };
+                                setCustomClauses(next);
+                              }}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="active">Active</SelectItem>
+                                  <SelectItem value="inactive">Inactive</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Version</Label>
+                              <Input type="number" value={v.version} onChange={(e) => {
+                                const next = [...customClauses];
+                                const nv = [...next[ccIdx].variants];
+                                nv[idx] = { ...nv[idx], version: Number(e.target.value) || 1 };
+                                next[ccIdx] = { ...next[ccIdx], variants: nv };
+                                setCustomClauses(next);
+                              }} />
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => {
+                              const next = [...customClauses];
+                              next[ccIdx] = { ...next[ccIdx], variants: next[ccIdx].variants.filter((_, i) => i !== idx) };
+                              setCustomClauses(next);
+                            }}>Remove Variant</Button>
+                            <Button variant="outline" onClick={() => {
+                              const next = [...customClauses];
+                              next[ccIdx] = { ...next[ccIdx], variants: [...next[ccIdx].variants, { name: "", riskLevel: "low", legalText: "", status: "active", version: 1 }] };
+                              setCustomClauses(next);
+                            }}>Add Variant</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <Button variant="outline" onClick={() => setCustomClauses([...customClauses, { name: "", category: "Core Structure", description: "", required: false, status: "active", variants: [{ name: "", riskLevel: "low", legalText: "", status: "active", version: 1 }] }])}>Add Another Clause</Button>
               </div>
             )}
 
