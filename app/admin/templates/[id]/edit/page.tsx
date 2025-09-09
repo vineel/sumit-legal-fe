@@ -173,6 +173,25 @@ export default function EditTemplatePage() {
             (clauses[0] as { isCustom?: boolean }).isCustom ?? null;
           console.log("First clause isCustom:", firstIsCustom);
           setFirstClauseIsCustom(firstIsCustom);
+          if (firstIsCustom) {
+            try {
+              const mapped = (clauses as any[]).map((c) => ({
+                name: c.name || "",
+                category: c.category || "Core Structure",
+                description: c.description || "",
+                required: !!c.required,
+                status: (c.status as any) || "active",
+                variants: (c.variants || []).map((v: any) => ({
+                  name: v.name || "",
+                  riskLevel: (v.riskLevel as any) || "low",
+                  legalText: v.legalText || "",
+                  status: (v.status as any) || "active",
+                  version: typeof v.version === "number" ? v.version : 1,
+                })),
+              }));
+              if (mapped.length > 0) setCustomClauses(mapped);
+            } catch {}
+          }
         }
       } finally {
         setLoading(false);
