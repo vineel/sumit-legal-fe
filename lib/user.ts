@@ -15,8 +15,6 @@ export interface UpdateUserPayload {
 
 
 export interface Agreement {
-  description: ReactNode;
-  title: ReactNode;
   _id: string;
   status: string;
   effectiveDate: string;
