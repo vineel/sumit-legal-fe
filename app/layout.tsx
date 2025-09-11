@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { DM_Sans, Space_Grotesk } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/components/auth-provider"
+import { Toaster } from "@/components/ui/toaster"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -31,6 +32,7 @@ export default function RootLayout({
                   <body suppressHydrationWarning={true}>
         
         <AuthProvider>{children}</AuthProvider>
+        <Toaster />
       </body>
     </html>
   )

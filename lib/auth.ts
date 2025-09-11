@@ -21,6 +21,28 @@ export interface AuthResponse {
   };
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  photo?: {
+    url?: string;
+  };
+  signature?: {
+    url?: string;
+  };
+}
+
+
 // ✅ POST /auth/signin
 export const signin = async (payload: SigninPayload): Promise<AuthResponse> => {
   const response = await api.post<AuthResponse>("/auth/signin", payload);
@@ -34,7 +56,7 @@ export const signup = async (payload: SignupPayload): Promise<AuthResponse> => {
 };
 
 // ✅ GET /auth/me (Requires Authorization header via Axios interceptor)
-export const getMe = async (): Promise<AuthResponse["user"]> => {
-  const response = await api.get<{ success: boolean; user: AuthResponse["user"] }>("/auth/me");
+export const getMe = async (): Promise<User> => {
+  const response = await api.get<{ success: boolean; user: User }>("/auth/me");
   return response.data.user;
 };
