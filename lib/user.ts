@@ -24,6 +24,21 @@ export interface Agreement {
 
 }
 
+
+export interface Template {
+  _id: string;
+  userid: string;
+  templatename: string;
+  description?: string;
+  clauses?: string[];
+  isCustom?: boolean;
+  active: boolean;
+  version: string;
+  createdby: string;
+  templatefile: string; // URL to S3 file
+  createdAt: string;
+  updatedAt: string;
+}
 // ✅ Update user profile (with optional files)
 export async function updateUser(payload: UpdateUserPayload): Promise<{ message: string; user: any }> {
   const formData = new FormData();
@@ -54,7 +69,7 @@ export async function updateUser(payload: UpdateUserPayload): Promise<{ message:
 
 
 export async function getAgreements(token: string): Promise<Agreement[]> {
-  const response = await api.get("/agreement/allagrements", {
+  const response = await api.get("/user/agreements", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -76,6 +91,37 @@ export async function getAgreements(token: string): Promise<Agreement[]> {
   }
 }
 
+
+
+// ✅ Get all templates for logged-in user
+export async function getTemplates(token: string): Promise<Template[]> {
+  try {
+    const response = await api.get("/user/templates", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching templates:", error);
+    throw new Error("Failed to fetch templates.");
+  }
+}
+
+
+export async function getTemplateById(token: string, id: string): Promise<Template> {
+  try {
+    const response = await api.get(`/api/admin/template/single/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching template by ID:", error);
+    throw new Error("Failed to fetch template.");
+  }
+}
 
  
  

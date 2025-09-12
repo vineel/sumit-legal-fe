@@ -159,7 +159,7 @@ export function PartyDashboard() {
         <div className="mb-8">
           <div className="flex gap-4">
             <Button asChild size="lg" className="gap-2">
-              <Link href="/intake">
+              <Link href="/select-template">
                 <Plus className="w-4 h-4" />
                 Start New Agreement
               </Link>

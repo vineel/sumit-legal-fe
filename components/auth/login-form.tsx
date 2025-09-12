@@ -3,7 +3,7 @@
 import * as React from "react"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,15 +16,28 @@ export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { login, user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   // If already logged in as admin, block user login and send to admin dashboard
   useEffect(() => {
     if (user && user.role === "admin") {
       router.replace("/admin")
     }
   }, [user, router])
+
+  // Check for pending approval message
+  useEffect(() => {
+    const message = searchParams.get("message")
+    if (message === "pending_approval") {
+      setSuccessMessage("Account created successfully! Your account is pending admin approval. You will receive an email notification once approved.")
+    }
+    if (message === "account_inactive") {
+      setError("Your account has been deactivated. Please contact support for assistance.")
+    }
+  }, [searchParams])
 
 
   // const handleSubmit = async (e: React.FormEvent) => {
@@ -50,12 +63,12 @@ const handleSubmit = async (e: React.FormEvent) => {
   setError("")
   setIsLoading(true)
 
-  const success = await login(email, password)
+  const result = await login(email, password)
 
-  if (success) {
+  if (result.success) {
     router.push("/dashboard")
   } else {
-    setError("Invalid email or password")
+    setError(result.message || "Login failed. Please try again.")
   }
 
   setIsLoading(false)
@@ -70,6 +83,11 @@ const handleSubmit = async (e: React.FormEvent) => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {successMessage && (
+            <Alert className="border-green-200 bg-green-50 text-green-800">
+              <AlertDescription>{successMessage}</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>

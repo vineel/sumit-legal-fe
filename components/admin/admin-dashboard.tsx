@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {fetchDashboardStatus,DashboardStatusData,allactivitylogs  } from "@/lib/admin";
+import { UserApproval } from "./user-approval";
 
 
 const mockStats = {
@@ -287,10 +288,11 @@ useEffect(() => {
         </div>
 
         <Tabs defaultValue="overview" className="mb-8">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="management">Management</TabsTrigger>
+            <TabsTrigger value="approvals">User Approvals</TabsTrigger>
          
           </TabsList>
 
@@ -541,6 +543,10 @@ useEffect(() => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="approvals" className="space-y-6">
+            <UserApproval />
           </TabsContent>
 
           {/* <TabsContent value="system" className="space-y-6">

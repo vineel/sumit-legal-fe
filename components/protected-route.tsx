@@ -32,6 +32,17 @@ export function ProtectedRoute({
         return
       }
 
+      // Check if user is approved (only for party users, admin can always access)
+      if (user.role === "party" && user.status === "pending") {
+        router.push("/login?message=pending_approval")
+        return
+      }
+
+      if (user.role === "party" && user.status === "inactive") {
+        router.push("/login?message=account_inactive")
+        return
+      }
+
       if (requiredRole && user.role !== requiredRole) {
         router.push(user.role === "admin" ? "/admin" : "/dashboard")
       }
@@ -52,6 +63,11 @@ export function ProtectedRoute({
   }
 
   if (!user || (requiredRole && user.role !== requiredRole)) {
+    return null
+  }
+
+  // Don't render if user is not approved
+  if (user.role === "party" && (user.status === "pending" || user.status === "inactive")) {
     return null
   }
 

@@ -57,29 +57,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; message?: string; status?: string }> => {
     try {
       const data = await signin({ email, password })
       localStorage.setItem("auth_token", data.token)
       const normalized = normalizeUser(data.user as unknown as User)
       localStorage.setItem("user", JSON.stringify(normalized))
       setUser(normalized)
-      return true
-    } catch (err) {
-      return false
+      return { success: true }
+    } catch (err: any) {
+      // Handle specific error responses
+      if (err.response?.data?.status === 'pending_approval') {
+        return { 
+          success: false, 
+          message: err.response.data.message,
+          status: 'pending_approval'
+        }
+      }
+      if (err.response?.data?.status === 'account_inactive') {
+        return { 
+          success: false, 
+          message: err.response.data.message,
+          status: 'account_inactive'
+        }
+      }
+      return { 
+        success: false, 
+        message: err.response?.data?.message || "Login failed. Please try again."
+      }
     }
   }
 
-  const signup = async (name: string, email: string, password: string): Promise<boolean> => {
+  const signup = async (name: string, email: string, password: string): Promise<{ success: boolean; message?: string; status?: string }> => {
     try {
       const data = await signupAPI({ name, email, password })
+      
+      // Don't auto-login if account is pending approval
+      if (data.status === 'pending_approval') {
+        return { 
+          success: true, 
+          message: data.message,
+          status: 'pending_approval'
+        }
+      }
+      
       localStorage.setItem("auth_token", data.token)
       const normalized = normalizeUser(data.user as unknown as User)
       localStorage.setItem("user", JSON.stringify(normalized))
       setUser(normalized)
-      return true
-    } catch (err) {
-      return false
+      return { success: true }
+    } catch (err: any) {
+      return { 
+        success: false, 
+        message: err.response?.data?.message || "Signup failed. Please try again."
+      }
     }
   }
 

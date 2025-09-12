@@ -9,6 +9,8 @@ import { ArrowLeft, ArrowRight, Home, Eye } from "lucide-react"
 import { ClauseRankingStep } from "./clause-ranking-step"
 import { DocumentPreview } from "./document-preview"
 import { intakeSchema } from "@/lib/intake-schema"
+import { getTemplateById, Template } from "@/lib/user"
+import { getAgreementById } from "@/lib/agreements"
 
 export type ClausePreference = {
   clauseType: string
@@ -23,28 +25,117 @@ export function IntakeFormWizard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session")
+  const templateId = searchParams.get("templateId")
+  const agreementId = searchParams.get("agreementId")
 
   const [currentStep, setCurrentStep] = useState(0)
   const [preferences, setPreferences] = useState<Record<string, ClausePreference>>({})
   const [showPreview, setShowPreview] = useState(false)
+  const [template, setTemplate] = useState<Template | null>(null)
+  const [agreement, setAgreement] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Initialize preferences
+  // Fetch template and agreement data
   useEffect(() => {
-    const initialPreferences: Record<string, ClausePreference> = {}
-    intakeSchema.forEach((clause) => {
-      initialPreferences[clause.clause_type] = {
-        clauseType: clause.clause_type,
-        selectedVariant: null,
-        ranking: clause.available_variants.map((_, index) => index + 1),
-        isRejected: false,
+    const fetchData = async () => {
+      if (!templateId || !agreementId) {
+        setError("Missing template or agreement ID")
+        setLoading(false)
+        return
       }
-    })
-    setPreferences(initialPreferences)
-  }, [])
 
-  const currentClause = intakeSchema[currentStep]
-  const totalSteps = intakeSchema.length
+      try {
+        setLoading(true)
+        const token = localStorage.getItem("auth_token")
+        if (!token) {
+          setError("No authentication token found")
+          return
+        }
+
+        // Fetch template and agreement data in parallel
+        const [templateData, agreementData] = await Promise.all([
+          getTemplateById(token, templateId),
+          getAgreementById(token, agreementId)
+        ])
+
+        setTemplate(templateData)
+        setAgreement(agreementData)
+
+        // Initialize preferences based on template clauses
+        const initialPreferences: Record<string, ClausePreference> = {}
+        if (templateData.clauses && templateData.clauses.length > 0) {
+          // Use template clauses if available
+          templateData.clauses.forEach((clauseId, index) => {
+            initialPreferences[clauseId] = {
+              clauseType: clauseId,
+              selectedVariant: null,
+              ranking: [index + 1],
+              isRejected: false,
+            }
+          })
+        } else {
+          // Fallback to intake schema
+          intakeSchema.forEach((clause) => {
+            initialPreferences[clause.clause_type] = {
+              clauseType: clause.clause_type,
+              selectedVariant: null,
+              ranking: clause.available_variants.map((_, index) => index + 1),
+              isRejected: false,
+            }
+          })
+        }
+        setPreferences(initialPreferences)
+      } catch (err) {
+        console.error("Error fetching data:", err)
+        setError("Failed to load template or agreement data")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [templateId, agreementId])
+
+  // Use template clauses if available, otherwise fallback to intake schema
+  const availableClauses = template?.clauses && template.clauses.length > 0 
+    ? template.clauses.map((clauseId, index) => ({
+        clause_type: clauseId,
+        available_variants: [
+          { id: `${clauseId}-variant-1`, name: "Standard", description: "Standard clause variant" },
+          { id: `${clauseId}-variant-2`, name: "Custom", description: "Custom clause variant" }
+        ]
+      }))
+    : intakeSchema
+
+  const currentClause = availableClauses[currentStep]
+  const totalSteps = availableClauses.length
   const progress = ((currentStep + 1) / totalSteps) * 100
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading template and agreement data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Error Loading Data</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={() => router.back()}>Go Back</Button>
+        </div>
+      </div>
+    )
+  }
 
   const updatePreference = (clauseType: string, preference: Partial<ClausePreference>) => {
     setPreferences((prev) => ({
@@ -132,6 +223,36 @@ export function IntakeFormWizard() {
           </div>
         </div>
       </header>
+
+      {/* Template & Agreement Info */}
+      {(template || agreement) && (
+        <div className="border-b bg-muted/50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {template && (
+                <div>
+                  <h3 className="font-medium text-sm text-muted-foreground mb-1">Template</h3>
+                  <p className="font-medium">{template.templatename}</p>
+                  {template.description && (
+                    <p className="text-sm text-muted-foreground">{template.description}</p>
+                  )}
+                </div>
+              )}
+              {agreement && (
+                <div>
+                  <h3 className="font-medium text-sm text-muted-foreground mb-1">Agreement</h3>
+                  <p className="font-medium">
+                    {agreement.partyAName} ↔ {agreement.partyBEmail || "Invited Party"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Status: {agreement.status || "Draft"}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

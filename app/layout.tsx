@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { DM_Sans, Space_Grotesk } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/components/auth-provider"
+import { NotificationProvider } from "@/components/notification-system"
 import { Toaster } from "@/components/ui/toaster"
 
 const dmSans = DM_Sans({
@@ -31,7 +32,11 @@ export default function RootLayout({
     <html lang="en" className={`${dmSans.variable} ${spaceGrotesk.variable} antialiased`}>
                   <body suppressHydrationWarning={true}>
         
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>

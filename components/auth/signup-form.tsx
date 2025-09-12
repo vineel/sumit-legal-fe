@@ -39,11 +39,19 @@ export function SignupForm() {
     setIsLoading(true)
 
     try {
-      const success = await signup(name, email, password)
-      if (success) {
-        router.push("/dashboard")
+      const result = await signup(name, email, password)
+      if (result.success) {
+        if (result.status === 'pending_approval') {
+          setError("") // Clear any previous errors
+          // Show success message for pending approval
+          setError("") // We'll show this as a success message instead
+          // For now, we'll redirect to login with a message
+          router.push("/login?message=pending_approval")
+        } else {
+          router.push("/dashboard")
+        }
       } else {
-        setError("Email already exists")
+        setError(result.message || "Signup failed. Please try again.")
       }
     } catch (err) {
       setError("An error occurred. Please try again.")
