@@ -53,7 +53,7 @@ export async function createAgreement(
     });
     console.log("✅ Create agreement response:", response.data)
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Create agreement error:", error)
     console.error("Error response:", error.response?.data)
     throw error
@@ -120,11 +120,56 @@ export async function getChatMessages(
 export async function downloadAgreementPDF(
   token: string,
   agreementId: string
-): Promise<string> {
-  const response = await api.get(`/agreement/${agreementId}/download`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.data.downloadUrl;
+): Promise<void> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/download-pdf`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to download PDF');
+    }
+
+    // Create blob and download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `agreement-${agreementId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    console.error('Error downloading PDF:', error);
+    throw error;
+  }
+}
+
+// --- Delete Agreement ---
+export async function deleteAgreement(
+  token: string,
+  agreementId: string
+): Promise<{ message: string; agreementId: string }> {
+  console.log("=== DELETE AGREEMENT API CALL ===")
+  console.log("API URL:", `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}`)
+  console.log("Token exists:", !!token)
+  
+  try {
+    const response = await api.delete(`/agreement/${agreementId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log("✅ Delete agreement response:", response.data)
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Delete agreement error:", error)
+    console.error("Error response:", error.response?.data)
+    throw error
+  }
 }
 
 // --- Accept Invitation ---
@@ -178,7 +223,7 @@ export async function sendInvite(
     });
     console.log("API Response:", response.data)
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error("API Error:", error)
     console.error("Error response:", error.response?.data)
     console.error("Error status:", error.response?.status)

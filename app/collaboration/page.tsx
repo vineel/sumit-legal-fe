@@ -1,7 +1,7 @@
 "use client"
 
 import { ProtectedRoute } from "@/components/protected-route"
-import { AgreementCollaborationWorkspace } from "@/components/agreement-collaboration-workspace"
+import { RealTimeCollaborationWorkspace } from "@/components/real-time-collaboration-workspace"
 import { useSearchParams } from "next/navigation"
 
 export default function CollaborationPage() {
@@ -21,7 +21,7 @@ export default function CollaborationPage() {
 
   return (
     <ProtectedRoute requiredRole="party">
-      <AgreementCollaborationWorkspace agreementId={agreementId} />
+      <RealTimeCollaborationWorkspace agreementId={agreementId} />
     </ProtectedRoute>
   )
 }

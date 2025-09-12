@@ -18,9 +18,12 @@ import {
   MapPin,
   Loader2,
   Eye,
-  Edit
+  Edit,
+  Trash2
 } from "lucide-react"
 import { SendInviteDialog } from "./send-invite-dialog"
+import { deleteAgreement } from "@/lib/agreements"
+import { useToast } from "@/hooks/use-toast"
 
 interface Agreement {
   _id: string
@@ -28,8 +31,17 @@ interface Agreement {
     templatename: string
     description?: string
   }
+  userid: {
+    _id: string
+    name: string
+    email: string
+  }
+  partyBUserId?: {
+    _id: string
+    name: string
+    email: string
+  }
   partyBEmail?: string
-  partyBUserId?: string
   status: string
   effectiveDate?: string
   termDuration?: string
@@ -55,6 +67,9 @@ export function AgreementCard({
 }: AgreementCardProps) {
   const router = useRouter()
   const [showInviteDialog, setShowInviteDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const { toast } = useToast()
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -85,6 +100,48 @@ export function AgreementCard({
   const canDownloadPDF = agreement.status === 'signed' && 
                        agreement.partyASignature && 
                        agreement.partyBSignature
+  const canDelete = agreement.status !== 'signed' // Can't delete signed agreements
+
+  // Handle delete agreement
+  const handleDeleteAgreement = async () => {
+    try {
+      setDeleting(true)
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again to continue.",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log("=== DELETE AGREEMENT DEBUG ===")
+      console.log("Deleting agreement:", agreement._id)
+      console.log("Agreement name:", agreement.templateId?.templatename)
+
+      await deleteAgreement(token, agreement._id)
+
+      toast({
+        title: "Agreement Deleted",
+        description: "The agreement has been successfully deleted.",
+        variant: "default"
+      })
+
+      // Refresh the page to update the list
+      window.location.reload()
+    } catch (error: any) {
+      console.error("Error deleting agreement:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete agreement. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setDeleting(false)
+      setShowDeleteDialog(false)
+    }
+  }
 
   // Debug logging
   console.log("Agreement Card Debug:", {
@@ -94,7 +151,8 @@ export function AgreementCard({
     status: agreement.status,
     canSendInvite,
     canStartAgreement,
-    canDownloadPDF
+    canDownloadPDF,
+    canDelete
   })
 
   return (
@@ -108,7 +166,14 @@ export function AgreementCard({
               </CardTitle>
               <CardDescription className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                {agreement.partyBEmail || 'No collaborator yet'}
+                <div className="flex flex-col">
+                  <span className="text-sm">
+                    <strong>Party A:</strong> {agreement.userid?.name || 'Unknown'}
+                  </span>
+                  <span className="text-sm">
+                    <strong>Party B:</strong> {agreement.partyBUserId?.name || agreement.partyBEmail || 'No collaborator yet'}
+                  </span>
+                </div>
               </CardDescription>
             </div>
             <Badge className={`${getStatusColor(agreement.status)} flex items-center gap-1`}>
@@ -218,6 +283,24 @@ export function AgreementCard({
               </Button>
             )}
 
+            {/* Delete Button */}
+            {canDelete && (
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="w-full"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                Delete Agreement
+              </Button>
+            )}
+
             {/* Status Message */}
             {!canDownloadPDF && agreement.status !== 'signed' && (
               <div className="text-xs text-muted-foreground text-center p-2 bg-muted rounded">
@@ -239,6 +322,64 @@ export function AgreementCard({
           window.location.reload()
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Delete Agreement</h3>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-2">
+                Are you sure you want to delete this agreement?
+              </p>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="font-medium text-sm">{agreement.templateId?.templatename}</p>
+                <p className="text-xs text-gray-500">Agreement ID: {agreement._id}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={deleting}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteAgreement}
+                disabled={deleting}
+                className="flex-1"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

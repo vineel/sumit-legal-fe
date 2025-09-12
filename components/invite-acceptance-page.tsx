@@ -34,12 +34,15 @@ interface InviteDetails {
 }
 
 export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps) {
-  const { user, isAuthenticated } = useAuth()
+  const { user } = useAuth()
+  const isAuthenticated = !!user
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [accepting, setAccepting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [inviteDetails, setInviteDetails] = useState<InviteDetails | null>(null)
+  const [alreadyAccepted, setAlreadyAccepted] = useState(false)
+  const [agreementId, setAgreementId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -55,6 +58,13 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
       const data = await response.json()
       
       if (!response.ok) {
+        // Check if invite is already accepted
+        if (data.alreadyAccepted) {
+          setAlreadyAccepted(true)
+          setAgreementId(data.agreementId)
+          setError(data.message)
+          return
+        }
         throw new Error(data.message || "Failed to fetch invite details")
       }
       
@@ -91,12 +101,15 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
       
       toast({
         title: "Invitation Accepted",
-        description: "You have successfully joined the agreement collaboration.",
+        description: "You have successfully joined the agreement collaboration. You can now see this agreement in your dashboard.",
         variant: "default"
       })
       
-      // Redirect to collaboration workspace
-      router.push(`/collaboration?agreementId=${result.agreement._id}`)
+      // Show success message with options
+      setTimeout(() => {
+        // Redirect to dashboard first so they can see the agreement
+        router.push('/dashboard')
+      }, 2000)
     } catch (err) {
       console.error("Error accepting invitation:", err)
       setError("Failed to accept invitation. Please try again.")
@@ -125,6 +138,67 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading invitation details...</p>
         </div>
+      </div>
+    )
+  }
+
+  // Show already accepted message
+  if (alreadyAccepted) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-green-600 mb-2">Already Accepted</h1>
+              <p className="text-muted-foreground mb-6">
+                This invitation has already been accepted. You can now view and collaborate on the agreement.
+              </p>
+              
+              {isAuthenticated ? (
+                <div className="space-y-3">
+                  <Button 
+                    onClick={() => router.push(`/collaboration?agreementId=${agreementId}`)}
+                    className="w-full"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    View Agreement
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => router.push('/dashboard')}
+                    className="w-full"
+                  >
+                    Go to Dashboard
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Please log in to view the agreement
+                  </p>
+                  <Button 
+                    onClick={handleLogin}
+                    className="w-full"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Log In
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleSignup}
+                    className="w-full"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Sign Up
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }

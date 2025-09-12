@@ -126,8 +126,8 @@ export function SendInviteDialog({
       console.log("✅ Invite sent successfully:", data)
 
       toast({
-        title: "Invitation Sent!",
-        description: `Invitation sent to ${data.inviteeName || email}. They will receive an email to start collaboration.`,
+        title: data.isResend ? "Invitation Resent!" : "Invitation Sent!",
+        description: `Invitation ${data.isResend ? 'resent' : 'sent'} to ${data.inviteeName || email}. They will receive an email to start collaboration.`,
         variant: "default"
       })
 

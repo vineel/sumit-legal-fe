@@ -20,8 +20,17 @@ interface Agreement {
     templatename: string
     description?: string
   }
+  userid: {
+    _id: string
+    name: string
+    email: string
+  }
+  partyBUserId?: {
+    _id: string
+    name: string
+    email: string
+  }
   partyBEmail?: string
-  partyBUserId?: string
   status: string
   effectiveDate?: string
   termDuration?: string
@@ -71,7 +80,22 @@ export function SimpleAgreementManagement({ userRole }: SimpleAgreementManagemen
       }
 
       const data = await response.json()
+      console.log("=== FRONTEND AGREEMENTS DEBUG ===")
+      console.log("Response status:", response.status)
       console.log("Agreements fetched:", data)
+      console.log("Number of agreements:", data?.length || 0)
+      
+      if (Array.isArray(data)) {
+        data.forEach((agreement, index) => {
+          console.log(`Frontend Agreement ${index + 1}:`)
+          console.log(`  - ID: ${agreement._id}`)
+          console.log(`  - Party A: ${agreement.userid}`)
+          console.log(`  - Party B: ${agreement.partyBUserId}`)
+          console.log(`  - Status: ${agreement.status}`)
+          console.log(`  - Template: ${agreement.templateId?.templatename}`)
+        })
+      }
+      
       setAgreements(data || [])
     } catch (err) {
       console.error("Error fetching agreements:", err)
@@ -246,12 +270,27 @@ export function SimpleAgreementManagement({ userRole }: SimpleAgreementManagemen
             }
           </p>
         </div>
-        {userRole === 'party' && (
-          <Button onClick={() => router.push('/select-template')}>
-            <Send className="w-4 h-4 mr-2" />
-            Create New Agreement
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchAgreements}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="w-4 h-4 mr-2" />
+            )}
+            Refresh
           </Button>
-        )}
+          {userRole === 'party' && (
+            <Button onClick={() => router.push('/select-template')}>
+              <Send className="w-4 h-4 mr-2" />
+              Create New Agreement
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
