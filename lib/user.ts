@@ -1,5 +1,6 @@
 import api from "./api";
 import { Clause } from "./clause";
+import { Agreement } from "./agreements";
 
 export interface UpdateUserPayload {
   name?: string;
@@ -15,15 +16,7 @@ export interface UpdateUserPayload {
 }
 
 
-export interface Agreement {
-  _id: string;
-  status: string;
-  effectiveDate: string;
-  termDuration: string;
-  jurisdiction: string;
-  signedDate: string;
-
-}
+// Agreement interface moved to agreements.ts to avoid duplication
 
 
 export interface Template {

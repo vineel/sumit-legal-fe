@@ -134,7 +134,7 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       }
     })
 
-    newSocket.on('new-chat-message', (data) => {
+    newSocket.on('receive-message', (data) => {
       console.log('New chat message:', data)
       if (data.agreementId === agreementId) {
         setChatMessages(prev => [...prev, data.message])
@@ -248,11 +248,12 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
 
       // Emit real-time update
       if (socket) {
-        socket.emit('clause-update', {
+        socket.emit('update-clause', {
           agreementId,
           clauseId,
           preference,
-          userRole: user?.role === 'admin' ? 'partyA' : 'partyB'
+          userRole: user?.role === 'admin' ? 'partyA' : 'partyB',
+          clauses: updatedClauses
         })
       }
 
@@ -355,11 +356,14 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       
       // Emit real-time message
       if (socket) {
-        socket.emit('send-chat-message', {
+        socket.emit('send-message', {
           agreementId,
-          message: newMessage,
-          senderRole: user?.role === 'admin' ? 'partyA' : 'partyB',
-          senderName: user?.name || 'Unknown User'
+          message: {
+            text: newMessage,
+            senderRole: user?.role === 'admin' ? 'partyA' : 'partyB',
+            senderName: user?.name || 'Unknown User',
+            timestamp: new Date().toISOString()
+          }
         })
       }
 
@@ -427,7 +431,7 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       if (!token) return
 
       // Call sign agreement API
-      const response = await fetch(`/api/agreement/${agreementId}/sign`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/agreement/${agreementId}/sign`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -439,7 +443,8 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       })
 
       if (!response.ok) {
-        throw new Error('Failed to sign agreement')
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to sign agreement')
       }
 
       const result = await response.json()

@@ -1,7 +1,7 @@
 import api from "./api"; // your axios instance
 
 // --- Types ---
-export type AgreementStatus = "draft" | "in-progress" | "resolved" | "exported";
+export type AgreementStatus = "draft" | "in-progress" | "resolved" | "exported" | "invited" | "accepted" | "signed" | "rejected";
 
 export interface Agreement {
   _id: string;
@@ -9,7 +9,7 @@ export interface Agreement {
   partyAName?: string;
   partyBUserId?: string | null;
   partyBEmail?: string | null;
-  templateId: string;
+  templateId: string | { _id: string; templatename: string };
   clauses: {
     clauseId: string;
     partyAPreference: string;
@@ -20,6 +20,8 @@ export interface Agreement {
   termDuration?: string;
   jurisdiction?: string;
   signedDate?: string;
+  partyASignature?: string;
+  partyBSignature?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -141,4 +143,31 @@ export async function getAgreementById(
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;
+}
+
+// --- Send Invite ---
+export async function sendInvite(
+  token: string,
+  agreementId: string,
+  inviteeEmail: string
+): Promise<{ message: string; inviteLink: string; inviteeName: string }> {
+  console.log("=== SEND INVITE API CALL ===")
+  console.log("URL:", "/agreement/send")
+  console.log("Payload:", { agreementId, inviteeEmail })
+  console.log("Headers:", { Authorization: `Bearer ${token}` })
+  
+  try {
+    const response = await api.post("/agreement/send", {
+      agreementId,
+      inviteeEmail
+    }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log("API Response:", response.data)
+    return response.data;
+  } catch (error) {
+    console.error("API Error:", error)
+    console.error("Error response:", error.response?.data)
+    throw error
+  }
 }

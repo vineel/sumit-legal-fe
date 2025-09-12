@@ -22,7 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { getTemplates, Template } from "@/lib/user"
 import { Clause } from "@/lib/clause"
-import { createAgreement } from "@/lib/agreements"
+import { createAgreement, sendInvite } from "@/lib/agreements"
 
 export function TemplateSelectionPage() {
   const [templates, setTemplates] = useState<Template[]>([])
@@ -74,11 +74,28 @@ export function TemplateSelectionPage() {
   const handleCreateAgreement = async () => {
     if (!selectedTemplate) return
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(inviteData.partyBEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
       setIsCreating(true)
+      setError(null)
       const token = localStorage.getItem("auth_token")
       if (!token) {
         setError("No authentication token found")
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again to continue.",
+          variant: "destructive"
+        })
         return
       }
 
@@ -91,7 +108,7 @@ export function TemplateSelectionPage() {
             if (typeof clause === 'string') {
               return clause
             } else if (clause && typeof clause === 'object') {
-              return clause._id || clause.id || ''
+              return clause._id || ''
             }
             return ''
           }).filter(id => id !== '') : [],
@@ -106,8 +123,8 @@ export function TemplateSelectionPage() {
       console.log("Agreement creation result:", result)
       
       toast({
-        title: "Agreement Created",
-        description: `Agreement created successfully and invitation sent to ${inviteData.partyBEmail}`,
+        title: "Agreement Created Successfully",
+        description: `Agreement created and invitation sent to ${inviteData.partyBEmail}. They will receive an email to start collaboration.`,
         variant: "default"
       })
       
@@ -132,7 +149,7 @@ export function TemplateSelectionPage() {
       
       setError(errorMessage)
       toast({
-        title: "Error",
+        title: "Error Creating Agreement",
         description: errorMessage,
         variant: "destructive"
       })
@@ -326,12 +343,11 @@ export function TemplateSelectionPage() {
                       // Handle both string IDs and populated clause objects
                       const clauseData = typeof clause === 'string' ? null : clause;
                       
-                      // Handle clause variants (if the clause object has variants array)
-                      const isVariant = clauseData && clauseData.riskLevel && clauseData.legalText;
-                      const displayName = isVariant ? clauseData.name : (clauseData?.name || `Clause ${index + 1}`);
-                      const displayDescription = isVariant ? clauseData.legalText : (clauseData?.description || "Clause details will be loaded in the agreement");
-                      const displayCategory = isVariant ? 'Variant' : (clauseData?.category || 'General');
-                      const displayStatus = isVariant ? clauseData.status : (clauseData?.status || 'active');
+                      // Handle clause data
+                      const displayName = clauseData?.name || `Clause ${index + 1}`;
+                      const displayDescription = clauseData?.description || "Clause details will be loaded in the agreement";
+                      const displayCategory = clauseData?.category || 'General';
+                      const displayStatus = clauseData?.status || 'active';
                       
                       return (
                         <div key={clauseData?._id || index} className="border rounded-lg p-4">
@@ -351,15 +367,6 @@ export function TemplateSelectionPage() {
                                   <Badge className={displayStatus === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                                     {displayStatus}
                                   </Badge>
-                                  {isVariant && clauseData.riskLevel && (
-                                    <Badge className={`${
-                                      clauseData.riskLevel === 'low' ? 'bg-green-100 text-green-800' :
-                                      clauseData.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
-                                      {clauseData.riskLevel} risk
-                                    </Badge>
-                                  )}
                                   {clauseData.required && (
                                     <Badge className="bg-blue-100 text-blue-800">Required</Badge>
                                   )}
@@ -449,7 +456,9 @@ export function TemplateSelectionPage() {
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  We'll send an invitation to this email address to start the collaboration.
+                  We'll send an invitation to this email address to start the collaboration. 
+                  <br />
+                  <strong>Note:</strong> The user must be registered and approved on the platform to receive the invitation.
                 </p>
               </div>
             </div>

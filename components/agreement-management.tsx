@@ -24,8 +24,11 @@ import {
   AlertCircle
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAgreements, Agreement } from "@/lib/user"
-import { updateAgreementStatus, downloadAgreementPDF } from "@/lib/agreements"
+import { getAgreements } from "@/lib/user"
+import { updateAgreementStatus, downloadAgreementPDF, sendInvite, Agreement, AgreementStatus } from "@/lib/agreements"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface AgreementManagementProps {
   userRole: 'admin' | 'party'
@@ -36,6 +39,10 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [selectedAgreement, setSelectedAgreement] = useState<Agreement | null>(null)
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [sendingInvite, setSendingInvite] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -89,7 +96,7 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
       setAgreements(prev => 
         prev.map(agreement => 
           agreement._id === agreementId 
-            ? { ...agreement, status: newStatus }
+            ? { ...agreement, status: newStatus as AgreementStatus }
             : agreement
         )
       )
@@ -151,6 +158,81 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
     } finally {
       setActionLoading(null)
     }
+  }
+
+  const handleSendInvite = async () => {
+    console.log("=== SEND INVITE DEBUG ===")
+    console.log("Selected agreement:", selectedAgreement)
+    console.log("Invite email:", inviteEmail)
+    
+    if (!selectedAgreement || !inviteEmail.trim()) {
+      console.log("Missing data - selectedAgreement:", !!selectedAgreement, "inviteEmail:", inviteEmail)
+      return
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(inviteEmail)) {
+      console.log("Invalid email format:", inviteEmail)
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setSendingInvite(true)
+      const token = localStorage.getItem("auth_token")
+      console.log("Auth token exists:", !!token)
+      
+      if (!token) {
+        console.log("No auth token found")
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again to continue.",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log("Calling sendInvite API with:", {
+        agreementId: selectedAgreement._id,
+        inviteeEmail: inviteEmail
+      })
+      
+      const result = await sendInvite(token, selectedAgreement._id, inviteEmail)
+      console.log("Send invite result:", result)
+      
+      toast({
+        title: "Invite Sent Successfully",
+        description: `Invitation sent to ${result.inviteeName} (${inviteEmail}). They will receive an email to start collaboration.`,
+        variant: "default"
+      })
+      
+      // Close dialog and reset form
+      setInviteDialogOpen(false)
+      setSelectedAgreement(null)
+      setInviteEmail("")
+      
+    } catch (err: any) {
+      console.error("Error sending invite:", err)
+      const errorMessage = err.response?.data?.message || "Failed to send invitation. Please try again."
+      toast({
+        title: "Error Sending Invite",
+        description: errorMessage,
+        variant: "destructive"
+      })
+    } finally {
+      setSendingInvite(false)
+    }
+  }
+
+  const openInviteDialog = (agreement: Agreement) => {
+    setSelectedAgreement(agreement)
+    setInviteEmail("")
+    setInviteDialogOpen(true)
   }
 
   const getStatusColor = (status: string) => {
@@ -259,15 +341,17 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                  <CardTitle className="text-lg">{agreement.templateId?.templatename || 'Custom Agreement'}</CardTitle>
+                  <CardTitle className="text-lg">
+                    {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : 'Custom Agreement'}
+                  </CardTitle>
                   <CardDescription className="flex items-center gap-2">
                     <Users className="w-4 h-4" />
                     {agreement.partyBEmail || 'No email provided'}
                   </CardDescription>
                 </div>
-                <Badge className={`${getStatusColor(agreement.status)} flex items-center gap-1`}>
-                  {getStatusIcon(agreement.status)}
-                  {agreement.status.replace('-', ' ').toUpperCase()}
+                <Badge className={`${getStatusColor(agreement.status || 'draft')} flex items-center gap-1`}>
+                  {getStatusIcon(agreement.status || 'draft')}
+                  {(agreement.status || 'draft').replace('-', ' ').toUpperCase()}
                 </Badge>
               </div>
             </CardHeader>
@@ -326,6 +410,19 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                   </Button>
                 )}
 
+                {/* Send Invite button - show when no party B is set */}
+                {!agreement.partyBUserId && !agreement.partyBEmail && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => openInviteDialog(agreement)}
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Invite
+                  </Button>
+                )}
+
                 {/* View/Edit actions */}
                 <div className="flex gap-2">
                   <Button 
@@ -380,6 +477,76 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
           </Card>
         ))}
       </div>
+
+      {/* Send Invite Dialog */}
+      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Invitation</DialogTitle>
+            <DialogDescription>
+              Send an invitation to collaborate on this agreement. The user must be registered and approved on the platform.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedAgreement && (
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-medium mb-2">Agreement Details:</h4>
+                <p className="text-sm text-muted-foreground">
+                  Template: {typeof selectedAgreement.templateId === 'object' ? selectedAgreement.templateId.templatename : 'Custom Agreement'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Status: {selectedAgreement.status}
+                </p>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="inviteEmail">Email Address *</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  id="inviteEmail"
+                  type="email"
+                  placeholder="Enter email address"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                The user must be registered and approved on the platform to receive the invitation.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setInviteDialogOpen(false)}
+              disabled={sendingInvite}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendInvite}
+              disabled={sendingInvite || !inviteEmail.trim()}
+            >
+              {sendingInvite ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Invite
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
