@@ -17,14 +17,13 @@ import {
   AlertCircle,
   Search,
   Edit,
-  Trash2,
   Shield,
   UserCheck,
   UserX,
   RefreshCw
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAllUsers, approveUser, rejectUser, activateUser, deactivateUser, updateUser, deleteUser, User } from "@/lib/admin"
+import { getAllUsers, approveUser, rejectUser, updateUser, User } from "@/lib/admin"
 
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
@@ -103,7 +102,7 @@ export function UserManagement() {
       
       // Update user status in local state
       setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, status: 'active' } : user
+        user.id === userId ? { ...user, status: 'approved' } : user
       ))
       
       toast({
@@ -149,7 +148,7 @@ export function UserManagement() {
       
       // Update user status in local state
       setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, status: 'inactive' } : user
+        user.id === userId ? { ...user, status: 'rejected' } : user
       ))
       
       toast({
@@ -180,168 +179,17 @@ export function UserManagement() {
     }
   }
 
-  const handleActivateUser = async (userId: string) => {
-    try {
-      console.log("=== FRONTEND ACTIVATE USER DEBUG ===");
-      console.log("User ID:", userId);
-      
-      setActionLoading(`activate-${userId}`)
-      setError(null)
-      
-      const token = localStorage.getItem("auth_token")
-      console.log("Token found:", !!token);
-      
-      if (!token) {
-        setError("No authentication token found")
-        return
-      }
 
-      console.log("Calling activateUser API...");
-      const result = await activateUser(token, userId)
-      console.log("Activate user result:", result);
-      
-      // Update user status in local state
-      setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, status: 'active' } : user
-      ))
-      
-      toast({
-        title: "User Activated",
-        description: "User has been activated successfully and can now login.",
-        variant: "default"
-      })
-    } catch (err: any) {
-      console.error("Error activating user:", err)
-      console.error("Error response:", err.response?.data)
-      console.error("Error status:", err.response?.status)
-      
-      let errorMessage = "Failed to activate user. Please try again."
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message
-      } else if (err.message) {
-        errorMessage = err.message
-      }
-      
-      setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      })
-    } finally {
-      setActionLoading(null)
-    }
-  }
 
-  const handleDeactivateUser = async (userId: string) => {
-    const reason = prompt("Please provide a reason for deactivating this user (optional):")
-    
-    try {
-      setActionLoading(`deactivate-${userId}`)
-      setError(null)
-      
-      const token = localStorage.getItem("auth_token")
-      if (!token) {
-        setError("No authentication token found")
-        return
-      }
-
-      await deactivateUser(token, userId, reason || undefined)
-      
-      // Update user status in local state
-      setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, status: 'inactive' } : user
-      ))
-      
-      toast({
-        title: "User Deactivated",
-        description: "User has been deactivated successfully and cannot login.",
-        variant: "default"
-      })
-    } catch (err: any) {
-      console.error("Error deactivating user:", err)
-      console.error("Error response:", err.response?.data)
-      console.error("Error status:", err.response?.status)
-      
-      let errorMessage = "Failed to deactivate user. Please try again."
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message
-      } else if (err.message) {
-        errorMessage = err.message
-      }
-      
-      setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      })
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return
-
-    try {
-      console.log("=== FRONTEND DELETE USER DEBUG ===");
-      console.log("User ID to delete:", userId);
-      
-      setActionLoading(`delete-${userId}`)
-      setError(null)
-      
-      const token = localStorage.getItem("auth_token")
-      console.log("Token found:", !!token);
-      
-      if (!token) {
-        setError("No authentication token found")
-        return
-      }
-
-      console.log("Calling deleteUser API...");
-      const result = await deleteUser(token, userId)
-      console.log("Delete user result:", result);
-      
-      // Remove user from local state
-      setUsers(prev => prev.filter(user => user.id !== userId))
-      
-      toast({
-        title: "User Deleted",
-        description: "User has been deleted successfully.",
-        variant: "default"
-      })
-    } catch (err: any) {
-      console.error("Error deleting user:", err)
-      console.error("Error response:", err.response?.data)
-      console.error("Error status:", err.response?.status)
-      
-      let errorMessage = "Failed to delete user. Please try again."
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message
-      } else if (err.message) {
-        errorMessage = err.message
-      }
-      
-      setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      })
-    } finally {
-      setActionLoading(null)
-    }
-  }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800 flex items-center gap-1"><UserCheck className="w-3 h-3" />Active</Badge>
+      case 'approved':
+        return <Badge className="bg-green-100 text-green-800 flex items-center gap-1"><UserCheck className="w-3 h-3" />Approved</Badge>
       case 'pending':
         return <Badge variant="secondary" className="flex items-center gap-1"><Clock className="w-3 h-3" />Pending</Badge>
-      case 'inactive':
-        return <Badge className="bg-red-100 text-red-800 flex items-center gap-1"><UserX className="w-3 h-3" />Inactive</Badge>
+      case 'rejected':
+        return <Badge className="bg-red-100 text-red-800 flex items-center gap-1"><UserX className="w-3 h-3" />Rejected</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -373,9 +221,9 @@ export function UserManagement() {
 
   const stats = {
     total: users.length,
-    active: users.filter(u => u.status === 'active').length,
+    approved: users.filter(u => u.status === 'approved').length,
     pending: users.filter(u => u.status === 'pending').length,
-    inactive: users.filter(u => u.status === 'inactive').length,
+    rejected: users.filter(u => u.status === 'rejected').length,
     admins: users.filter(u => u.role === 'admin').length
   }
 
@@ -422,8 +270,8 @@ export function UserManagement() {
             <div className="flex items-center space-x-2">
               <UserCheck className="w-4 h-4 text-green-600" />
               <div>
-                <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-                <p className="text-xs text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
+                <p className="text-xs text-muted-foreground">Approved</p>
               </div>
             </div>
           </CardContent>
@@ -444,8 +292,8 @@ export function UserManagement() {
             <div className="flex items-center space-x-2">
               <UserX className="w-4 h-4 text-red-600" />
               <div>
-                <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
-                <p className="text-xs text-muted-foreground">Inactive</p>
+                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+                <p className="text-xs text-muted-foreground">Rejected</p>
               </div>
             </div>
           </CardContent>
@@ -556,59 +404,7 @@ export function UserManagement() {
                     </>
                   )}
 
-                  {user.status === 'inactive' && user.role !== 'admin' && (
-                    <Button
-                      onClick={() => {
-                        console.log("Activate button clicked for user:", user.id, user.name);
-                        handleActivateUser(user.id);
-                      }}
-                      disabled={actionLoading === `activate-${user.id}`}
-                      className="flex items-center gap-2"
-                      size="sm"
-                    >
-                      {actionLoading === `activate-${user.id}` ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <UserCheck className="w-4 h-4" />
-                      )}
-                      {actionLoading === `activate-${user.id}` ? "Activating..." : "Activate"}
-                    </Button>
-                  )}
 
-                  {user.status === 'active' && user.role !== 'admin' && (
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleDeactivateUser(user.id)}
-                      disabled={actionLoading === `deactivate-${user.id}`}
-                      className="flex items-center gap-2"
-                      size="sm"
-                    >
-                      {actionLoading === `deactivate-${user.id}` ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <UserX className="w-4 h-4" />
-                      )}
-                      {actionLoading === `deactivate-${user.id}` ? "Deactivating..." : "Deactivate"}
-                    </Button>
-                  )}
-
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      console.log("Delete button clicked for user:", user.id, user.name);
-                      handleDeleteUser(user.id);
-                    }}
-                    disabled={actionLoading === `delete-${user.id}` || user.role === 'admin'}
-                    className="flex items-center gap-2"
-                    size="sm"
-                  >
-                    {actionLoading === `delete-${user.id}` ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                    Delete
-                  </Button>
                     </div>
                   </CardContent>
                 </Card>

@@ -11,8 +11,9 @@ export interface User {
 
 export interface DashboardStatusData {
   totalUsers: number
-  activeUsers: number
+  approvedUsers: number
   pendingUsers: number
+  rejectedUsers: number
   adminUsers: number
   totalClauses: number
   totalTemplates: number
@@ -111,21 +112,6 @@ export const rejectUser = async (token: string, userId: string): Promise<{ messa
   return response.data;
 };
 
-// Activate user
-export const activateUser = async (token: string, userId: string): Promise<{ message: string }> => {
-  const response = await api.put<{ message: string }>(`/admin/activate-user/${userId}`, {}, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return response.data;
-};
-
-// Deactivate user
-export const deactivateUser = async (token: string, userId: string, reason?: string): Promise<{ message: string }> => {
-  const response = await api.put<{ message: string }>(`/admin/deactivate-user/${userId}`, { reason }, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return response.data;
-};
 
 // Delete user (updated to use token)
 export const deleteUser = async (token: string, userId: string): Promise<{ message: string }> => {

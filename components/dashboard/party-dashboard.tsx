@@ -1,6 +1,7 @@
 "use client"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { User as UserIcon, LogOut, UserCircle } from "lucide-react"
+import { User as UserIcon, LogOut, UserCircle, FileText, Users } from "lucide-react"
 import Link from "next/link"
 import { AgreementManagement } from "@/components/agreement-management"
 import { NotificationDropdown } from "@/components/notification-dropdown"
@@ -61,8 +62,44 @@ export function PartyDashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <AgreementManagement userRole="party" />
-        </main>
-      </div>
-    )
+        <div className="space-y-8">
+          {/* Welcome Section */}
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.name}!</h1>
+            <p className="text-muted-foreground">Manage your legal agreements and collaborations</p>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/select-template'}>
+              <CardContent className="p-6 text-center">
+                <FileText className="w-8 h-8 mx-auto mb-2 text-primary" />
+                <h3 className="font-semibold mb-1">Create Agreement</h3>
+                <p className="text-sm text-muted-foreground">Start a new legal agreement</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/dashboard#agreements'}>
+              <CardContent className="p-6 text-center">
+                <Users className="w-8 h-8 mx-auto mb-2 text-primary" />
+                <h3 className="font-semibold mb-1">Active Agreements</h3>
+                <p className="text-sm text-muted-foreground">View your ongoing collaborations</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/profile'}>
+              <CardContent className="p-6 text-center">
+                <UserCircle className="w-8 h-8 mx-auto mb-2 text-primary" />
+                <h3 className="font-semibold mb-1">Profile Settings</h3>
+                <p className="text-sm text-muted-foreground">Manage your account</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Agreements Management */}
+          <AgreementManagement userRole="party" />
+        </div>
+      </main>
+    </div>
+  )
   }

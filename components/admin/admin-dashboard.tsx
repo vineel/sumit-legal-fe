@@ -316,9 +316,9 @@ useEffect(() => {
                 <div className="flex-1">
                   <p className="text-2xl font-bold">
                     {/* {mockStats?.activeSessions} */}
-                            {status?.activeUsers}
+                            {status?.approvedUsers}
                     </p>
-                  <p className="text-sm text-muted-foreground">Active Users</p>
+                  <p className="text-sm text-muted-foreground">Approved Users</p>
                   {/* <p className="text-xs text-muted-foreground mt-1">Avg: {mockStats?.avgResolutionTime}</p> */}
                 </div>
               </div>

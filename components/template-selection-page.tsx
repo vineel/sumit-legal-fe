@@ -86,16 +86,24 @@ export function TemplateSelectionPage() {
       const agreementData = {
         templateId: selectedTemplate._id,
         clauses: selectedTemplate.clauses ? 
-          selectedTemplate.clauses.map(clause => 
-            typeof clause === 'string' ? clause : (clause._id || clause.id || '')
-          ).filter(id => id !== '') : [],
+          selectedTemplate.clauses.map(clause => {
+            // Handle both string IDs and populated clause objects
+            if (typeof clause === 'string') {
+              return clause
+            } else if (clause && typeof clause === 'object') {
+              return clause._id || clause.id || ''
+            }
+            return ''
+          }).filter(id => id !== '') : [],
         partyBEmail: inviteData.partyBEmail,
         effectiveDate: new Date().toISOString().split('T')[0], // Default to today
         termDuration: "1 year", // Default duration
         jurisdiction: "United States" // Default jurisdiction
       }
 
+      console.log("Creating agreement with data:", agreementData)
       const result = await createAgreement(token, agreementData)
+      console.log("Agreement creation result:", result)
       
       toast({
         title: "Agreement Created",
@@ -110,12 +118,22 @@ export function TemplateSelectionPage() {
       
       // Navigate to collaboration workspace
       router.push(`/collaboration?agreementId=${result.agreement._id}`)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating agreement:", err)
-      setError("Failed to create agreement")
+      console.error("Error response:", err.response?.data)
+      console.error("Error status:", err.response?.status)
+      
+      let errorMessage = "Failed to create agreement. Please try again."
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to create agreement. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
