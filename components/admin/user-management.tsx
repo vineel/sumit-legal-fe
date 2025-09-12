@@ -8,10 +8,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { 
   Users, 
-  CheckCircle, 
-  XCircle, 
+  CheckCircle,
+  XCircle,
   Clock, 
-  Mail, 
+  Mail,
   Calendar,
   Loader2,
   AlertCircle,
@@ -51,9 +51,12 @@ export function UserManagement() {
 
       const data = await getAllUsers(token)
       console.log("Fetched users data:", data) // Debug log
+      console.log("Users array:", data?.users)
+      console.log("First user:", data?.users?.[0])
       
       if (data && data.users) {
         setUsers(data.users)
+        console.log("Users set in state:", data.users.length, "users")
       } else {
         setError("No user data received from server")
       }
@@ -80,16 +83,23 @@ export function UserManagement() {
 
   const handleApproveUser = async (userId: string) => {
     try {
+      console.log("=== FRONTEND APPROVE USER DEBUG ===");
+      console.log("User ID:", userId);
+      
       setActionLoading(`approve-${userId}`)
       setError(null)
       
       const token = localStorage.getItem("auth_token")
+      console.log("Token found:", !!token);
+      
       if (!token) {
         setError("No authentication token found")
         return
       }
 
-      await approveUser(token, userId)
+      console.log("Calling approveUser API...");
+      const result = await approveUser(token, userId)
+      console.log("Approve user result:", result);
       
       // Update user status in local state
       setUsers(prev => prev.map(user => 
@@ -101,12 +111,22 @@ export function UserManagement() {
         description: "User has been approved successfully and can now login.",
         variant: "default"
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error approving user:", err)
-      setError("Failed to approve user")
+      console.error("Error response:", err.response?.data)
+      console.error("Error status:", err.response?.status)
+      
+      let errorMessage = "Failed to approve user. Please try again."
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to approve user. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
@@ -137,12 +157,22 @@ export function UserManagement() {
         description: "User has been rejected and cannot login.",
         variant: "default"
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error rejecting user:", err)
-      setError("Failed to reject user")
+      console.error("Error response:", err.response?.data)
+      console.error("Error status:", err.response?.status)
+      
+      let errorMessage = "Failed to reject user. Please try again."
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to reject user. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
@@ -152,16 +182,23 @@ export function UserManagement() {
 
   const handleActivateUser = async (userId: string) => {
     try {
+      console.log("=== FRONTEND ACTIVATE USER DEBUG ===");
+      console.log("User ID:", userId);
+      
       setActionLoading(`activate-${userId}`)
       setError(null)
       
       const token = localStorage.getItem("auth_token")
+      console.log("Token found:", !!token);
+      
       if (!token) {
         setError("No authentication token found")
         return
       }
 
-      await activateUser(token, userId)
+      console.log("Calling activateUser API...");
+      const result = await activateUser(token, userId)
+      console.log("Activate user result:", result);
       
       // Update user status in local state
       setUsers(prev => prev.map(user => 
@@ -173,12 +210,22 @@ export function UserManagement() {
         description: "User has been activated successfully and can now login.",
         variant: "default"
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error activating user:", err)
-      setError("Failed to activate user")
+      console.error("Error response:", err.response?.data)
+      console.error("Error status:", err.response?.status)
+      
+      let errorMessage = "Failed to activate user. Please try again."
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to activate user. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
@@ -211,12 +258,22 @@ export function UserManagement() {
         description: "User has been deactivated successfully and cannot login.",
         variant: "default"
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error deactivating user:", err)
-      setError("Failed to deactivate user")
+      console.error("Error response:", err.response?.data)
+      console.error("Error status:", err.response?.status)
+      
+      let errorMessage = "Failed to deactivate user. Please try again."
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to deactivate user. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
@@ -247,12 +304,22 @@ export function UserManagement() {
         description: "User has been deleted successfully.",
         variant: "default"
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error deleting user:", err)
-      setError("Failed to delete user")
+      console.error("Error response:", err.response?.data)
+      console.error("Error status:", err.response?.status)
+      
+      let errorMessage = "Failed to delete user. Please try again."
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to delete user. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
@@ -384,7 +451,7 @@ export function UserManagement() {
                 <p className="text-2xl font-bold text-purple-600">{stats.admins}</p>
                 <p className="text-xs text-muted-foreground">Admins</p>
               </div>
-            </div>
+        </div>
           </CardContent>
         </Card>
       </div>
@@ -422,37 +489,40 @@ export function UserManagement() {
         <div className="grid gap-4">
           {filteredUsers.map((user, index) => (
             <Card key={user.id || `user-${index}`}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg flex items-center gap-2">
                       {user.name}
                       {getRoleBadge(user.role)}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-2 mt-1">
-                      <Mail className="w-4 h-4" />
-                      {user.email}
-                    </CardDescription>
-                  </div>
+                          <Mail className="w-4 h-4" />
+                          {user.email}
+                        </CardDescription>
+                      </div>
                   <div className="flex flex-col gap-2">
                     {getStatusBadge(user.status)}
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
+                        <Calendar className="w-4 h-4" />
                   Registered: {user.createdAt ? formatDate(user.createdAt) : 'Unknown'}
-                </div>
+                    </div>
 
                 <div className="flex gap-2 flex-wrap">
                   {user.status === 'pending' && (
                     <>
-                      <Button
-                        onClick={() => handleApproveUser(user.id)}
+                      <Button 
+                        onClick={() => {
+                          console.log("Approve button clicked for user:", user.id, user.name);
+                          handleApproveUser(user.id);
+                        }}
                         disabled={actionLoading === `approve-${user.id}`}
                         className="flex items-center gap-2"
-                        size="sm"
+                        size="sm" 
                       >
                         {actionLoading === `approve-${user.id}` ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -462,8 +532,8 @@ export function UserManagement() {
                         {actionLoading === `approve-${user.id}` ? "Approving..." : "Approve"}
                       </Button>
 
-                      <Button
-                        variant="destructive"
+                      <Button 
+                        variant="destructive" 
                         onClick={() => handleRejectUser(user.id)}
                         disabled={actionLoading === `reject-${user.id}`}
                         className="flex items-center gap-2"
@@ -481,7 +551,10 @@ export function UserManagement() {
 
                   {user.status === 'inactive' && user.role !== 'admin' && (
                     <Button
-                      onClick={() => handleActivateUser(user.id)}
+                      onClick={() => {
+                        console.log("Activate button clicked for user:", user.id, user.name);
+                        handleActivateUser(user.id);
+                      }}
                       disabled={actionLoading === `activate-${user.id}`}
                       className="flex items-center gap-2"
                       size="sm"
@@ -526,10 +599,10 @@ export function UserManagement() {
                     )}
                     Delete
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
         </div>
       )}
     </div>
