@@ -77,7 +77,7 @@ interface Agreement {
 
 export function PartyDashboard() {
   const { user, logout } = useAuth()
-    const [agreements, setAgreements] = useState<Agreement[]>([]);
+  const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -167,7 +167,29 @@ export function PartyDashboard() {
           </div>
         </div>
 
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Loading State */}
+        {loading && (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-3 bg-muted rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-muted rounded"></div>
+                    <div className="h-3 bg-muted rounded w-2/3"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Agreements Grid */}
+        {!loading && (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
   {agreements.map((agreement) => {
     const config = statusConfig[agreement.status]
     const StatusIcon = config.icon
@@ -266,17 +288,35 @@ export function PartyDashboard() {
             <Button asChild size="sm" variant="outline" className="flex-1">
               <Link href={`/collaboration?session=${agreement._id}`}>View Collaborations</Link>
             </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/session/${agreement._id}`}>Details</Link>
-            </Button>
+             <Button asChild size="sm" variant="outline">
+               <Link href={`/agreement/${agreement._id}`}>Details</Link>
+             </Button>
           </div>
         </CardContent>
       </Card>
     )
   })}
-</div>
+          </div>
+        )}
 
-      </main>
-    </div>
-  )
-}
+        {/* Empty State */}
+        {agreements.length === 0 && !loading && (
+          <Card className="text-center py-12 mt-8">
+            <CardContent>
+              <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <CardTitle className="mb-2">No Agreement Sessions Yet</CardTitle>
+              <CardDescription className="mb-4">Start your first agreement collaboration to get started</CardDescription>
+              <Button asChild>
+                <Link href="/intake">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Agreement
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        </main>
+      </div>
+    )
+  }
