@@ -285,16 +285,23 @@ export function UserManagement() {
     if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return
 
     try {
+      console.log("=== FRONTEND DELETE USER DEBUG ===");
+      console.log("User ID to delete:", userId);
+      
       setActionLoading(`delete-${userId}`)
       setError(null)
       
       const token = localStorage.getItem("auth_token")
+      console.log("Token found:", !!token);
+      
       if (!token) {
         setError("No authentication token found")
         return
       }
 
-      await deleteUser(token, userId)
+      console.log("Calling deleteUser API...");
+      const result = await deleteUser(token, userId)
+      console.log("Delete user result:", result);
       
       // Remove user from local state
       setUsers(prev => prev.filter(user => user.id !== userId))
@@ -587,7 +594,10 @@ export function UserManagement() {
 
                   <Button
                     variant="destructive"
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => {
+                      console.log("Delete button clicked for user:", user.id, user.name);
+                      handleDeleteUser(user.id);
+                    }}
                     disabled={actionLoading === `delete-${user.id}` || user.role === 'admin'}
                     className="flex items-center gap-2"
                     size="sm"
