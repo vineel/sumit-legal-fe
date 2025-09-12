@@ -152,7 +152,8 @@ export async function sendInvite(
   inviteeEmail: string
 ): Promise<{ message: string; inviteLink: string; inviteeName: string }> {
   console.log("=== SEND INVITE API CALL ===")
-  console.log("URL:", "/agreement/send")
+  console.log("Base URL:", process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api")
+  console.log("Full URL:", `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/agreement/send`)
   console.log("Payload:", { agreementId, inviteeEmail })
   console.log("Headers:", { Authorization: `Bearer ${token}` })
   
@@ -168,6 +169,8 @@ export async function sendInvite(
   } catch (error) {
     console.error("API Error:", error)
     console.error("Error response:", error.response?.data)
+    console.error("Error status:", error.response?.status)
+    console.error("Error message:", error.message)
     throw error
   }
 }

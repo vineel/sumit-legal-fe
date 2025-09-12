@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { User as UserIcon, LogOut, UserCircle, FileText, Users } from "lucide-react"
 import Link from "next/link"
-import { AgreementManagement } from "@/components/agreement-management"
+import { SimpleAgreementManagement } from "@/components/simple-agreement-management"
 import { NotificationDropdown } from "@/components/notification-dropdown"
 
 export function PartyDashboard() {
@@ -97,7 +97,7 @@ export function PartyDashboard() {
           </div>
 
           {/* Agreements Management */}
-          <AgreementManagement userRole="party" />
+          <SimpleAgreementManagement userRole="party" />
         </div>
       </main>
     </div>

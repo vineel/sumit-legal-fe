@@ -233,9 +233,13 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
+      // Determine which party preference to update based on user role
+      const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
+      const preferenceField = isPartyA ? 'partyAPreference' : 'partyBPreference'
+
       const updatedClauses = clauses.map(clause => 
         clause._id === clauseId 
-          ? { ...clause, [user?.role === 'admin' ? 'partyAPreference' : 'partyBPreference']: preference }
+          ? { ...clause, [preferenceField]: preference }
           : clause
       )
 
@@ -252,7 +256,7 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
           agreementId,
           clauseId,
           preference,
-          userRole: user?.role === 'admin' ? 'partyA' : 'partyB',
+          userRole: isPartyA ? 'partyA' : 'partyB',
           clauses: updatedClauses
         })
       }
@@ -352,17 +356,22 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
-      const result = await sendChatMessage(token, agreementId, newMessage, user?.role === 'admin' ? 'partyA' : 'partyB')
+      // Determine sender role based on agreement ownership
+      const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
+      const senderRole = isPartyA ? 'partyA' : 'partyB'
+
+      const result = await sendChatMessage(token, agreementId, newMessage, senderRole)
       
       // Emit real-time message
       if (socket) {
         socket.emit('send-message', {
           agreementId,
           message: {
+            _id: result.chatMessage._id,
             text: newMessage,
-            senderRole: user?.role === 'admin' ? 'partyA' : 'partyB',
+            senderRole: senderRole,
             senderName: user?.name || 'Unknown User',
-            timestamp: new Date().toISOString()
+            createdAt: new Date().toISOString()
           }
         })
       }
@@ -430,8 +439,12 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
+      // Determine which party is signing
+      const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
+      const signedBy = isPartyA ? 'partyA' : 'partyB'
+
       // Call sign agreement API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/agreement/${agreementId}/sign`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/agreement/${agreementId}/sign`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -452,8 +465,8 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       // Update local state
       setAgreement((prev: any) => prev ? {
         ...prev,
-        partyASignature: user?.role === 'admin' ? signature : prev.partyASignature,
-        partyBSignature: user?.role === 'admin' ? prev.partyBSignature : signature,
+        partyASignature: isPartyA ? signature : prev.partyASignature,
+        partyBSignature: !isPartyA ? signature : prev.partyBSignature,
         status: result.agreement.status
       } : null)
 
@@ -461,7 +474,7 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       if (socket) {
         socket.emit('agreement-signed', {
           agreementId,
-          signedBy: user?.role === 'admin' ? 'partyA' : 'partyB',
+          signedBy: signedBy,
           isComplete: result.agreement.status === 'signed'
         })
       }
@@ -633,80 +646,79 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                   <div className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <Label>Party A (You)</Label>
+                        <Label>Party A {agreement?.userid?.toString() === user?.id?.toString() ? '(You)' : ''}</Label>
                         <div className="space-y-2">
                           <div className="flex gap-2">
                             <Button
                               size="sm"
-                              variant={clause.partyAPreference === 'agree' ? 'default' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'agree')}
-                              disabled={saving}
+                              variant={clause.partyAPreference === 'preferred' ? 'default' : 'outline'}
+                              onClick={() => handleClauseUpdate(clause._id, 'preferred')}
+                              disabled={saving || agreement?.userid?.toString() !== user?.id?.toString()}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Agree
+                              Preferred
                             </Button>
                             <Button
                               size="sm"
-                              variant={clause.partyAPreference === 'disagree' ? 'destructive' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'disagree')}
-                              disabled={saving}
+                              variant={clause.partyAPreference === 'acceptable' ? 'default' : 'outline'}
+                              onClick={() => handleClauseUpdate(clause._id, 'acceptable')}
+                              disabled={saving || agreement?.userid?.toString() !== user?.id?.toString()}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Acceptable
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={clause.partyAPreference === 'unacceptable' ? 'destructive' : 'outline'}
+                              onClick={() => handleClauseUpdate(clause._id, 'unacceptable')}
+                              disabled={saving || agreement?.userid?.toString() !== user?.id?.toString()}
                             >
                               <XCircle className="w-4 h-4 mr-1" />
-                              Disagree
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={clause.partyAPreference === 'modify' ? 'secondary' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'modify')}
-                              disabled={saving}
-                            >
-                              <Edit className="w-4 h-4 mr-1" />
-                              Modify
+                              Unacceptable
                             </Button>
                           </div>
-                          {clause.partyAPreference === 'modify' && (
-                            <Textarea
-                              value={clause.partyAPreference || ''}
-                              onChange={(e) => handleClauseUpdate(clause._id, e.target.value)}
-                              placeholder="Enter your modification..."
-                              disabled={saving}
-                              rows={3}
-                            />
+                          {clause.partyAPreference && (
+                            <div className="p-3 bg-muted rounded-lg">
+                              <p className="text-sm font-medium">Party A: {clause.partyAPreference}</p>
+                            </div>
                           )}
                         </div>
                       </div>
                       <div>
-                        <Label>Party B</Label>
+                        <Label>Party B {agreement?.partyBUserId?.toString() === user?.id?.toString() ? '(You)' : ''}</Label>
                         <div className="space-y-2">
                           <div className="flex gap-2">
                             <Button
                               size="sm"
-                              variant={clause.partyBPreference === 'agree' ? 'default' : 'outline'}
-                              disabled
+                              variant={clause.partyBPreference === 'preferred' ? 'default' : 'outline'}
+                              onClick={() => handleClauseUpdate(clause._id, 'preferred')}
+                              disabled={saving || agreement?.partyBUserId?.toString() !== user?.id?.toString()}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Agree
+                              Preferred
                             </Button>
                             <Button
                               size="sm"
-                              variant={clause.partyBPreference === 'disagree' ? 'destructive' : 'outline'}
-                              disabled
+                              variant={clause.partyBPreference === 'acceptable' ? 'default' : 'outline'}
+                              onClick={() => handleClauseUpdate(clause._id, 'acceptable')}
+                              disabled={saving || agreement?.partyBUserId?.toString() !== user?.id?.toString()}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Acceptable
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={clause.partyBPreference === 'unacceptable' ? 'destructive' : 'outline'}
+                              onClick={() => handleClauseUpdate(clause._id, 'unacceptable')}
+                              disabled={saving || agreement?.partyBUserId?.toString() !== user?.id?.toString()}
                             >
                               <XCircle className="w-4 h-4 mr-1" />
-                              Disagree
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={clause.partyBPreference === 'modify' ? 'secondary' : 'outline'}
-                              disabled
-                            >
-                              <Edit className="w-4 h-4 mr-1" />
-                              Modify
+                              Unacceptable
                             </Button>
                           </div>
                           {clause.partyBPreference && (
                             <div className="p-3 bg-muted rounded-lg">
-                              <p className="text-sm">{clause.partyBPreference}</p>
+                              <p className="text-sm font-medium">Party B: {clause.partyBPreference}</p>
                             </div>
                           )}
                         </div>
@@ -752,26 +764,31 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
               <div className="space-y-4">
                 {/* Messages */}
                 <div className="h-96 overflow-y-auto space-y-4 border rounded-lg p-4">
-                  {chatMessages.map((message) => (
-                    <div
-                      key={message._id}
-                      className={`flex ${message.senderRole === (user?.role === 'admin' ? 'partyA' : 'partyB') ? 'justify-end' : 'justify-start'}`}
-                    >
+                  {chatMessages.map((message) => {
+                    const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
+                    const isMyMessage = (isPartyA && message.senderRole === 'partyA') || (!isPartyA && message.senderRole === 'partyB')
+                    
+                    return (
                       <div
-                        className={`max-w-xs p-3 rounded-lg ${
-                          message.senderRole === (user?.role === 'admin' ? 'partyA' : 'partyB')
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
+                        key={message._id}
+                        className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
                       >
-                        <p className="text-sm font-medium">{message.senderName}</p>
-                        <p className="text-sm">{message.message}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {new Date(message.createdAt).toLocaleTimeString()}
-                        </p>
+                        <div
+                          className={`max-w-xs p-3 rounded-lg ${
+                            isMyMessage
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-100 text-gray-900'
+                          }`}
+                        >
+                          <p className="text-sm font-medium">{message.senderName}</p>
+                          <p className="text-sm">{message.message}</p>
+                          <p className="text-xs opacity-70 mt-1">
+                            {new Date(message.createdAt).toLocaleTimeString()}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -818,7 +835,11 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
               </div>
 
               {/* Signature Input */}
-              {!agreement[user?.role === 'admin' ? 'partyASignature' : 'partyBSignature'] && (
+              {(() => {
+                const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
+                const signatureField = isPartyA ? 'partyASignature' : 'partyBSignature'
+                return !agreement[signatureField]
+              })() && (
                 <div className="space-y-4">
                   <div>
                     <Label>Your Digital Signature</Label>

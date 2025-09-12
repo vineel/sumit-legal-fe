@@ -164,9 +164,16 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
     console.log("=== SEND INVITE DEBUG ===")
     console.log("Selected agreement:", selectedAgreement)
     console.log("Invite email:", inviteEmail)
+    console.log("Dialog open:", inviteDialogOpen)
+    console.log("Sending invite state:", sendingInvite)
     
     if (!selectedAgreement || !inviteEmail.trim()) {
       console.log("Missing data - selectedAgreement:", !!selectedAgreement, "inviteEmail:", inviteEmail)
+      toast({
+        title: "Missing Information",
+        description: "Please select an agreement and enter an email address.",
+        variant: "destructive"
+      })
       return
     }
 
@@ -230,9 +237,12 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
   }
 
   const openInviteDialog = (agreement: Agreement) => {
+    console.log("=== OPEN INVITE DIALOG ===")
+    console.log("Agreement:", agreement)
     setSelectedAgreement(agreement)
     setInviteEmail("")
     setInviteDialogOpen(true)
+    console.log("Dialog should be open now")
   }
 
   const getStatusColor = (status: string) => {
@@ -529,7 +539,13 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
               Cancel
             </Button>
             <Button 
-              onClick={handleSendInvite}
+              onClick={() => {
+                console.log("=== SEND BUTTON CLICKED ===")
+                console.log("Sending invite:", sendingInvite)
+                console.log("Email:", inviteEmail)
+                console.log("Selected agreement:", selectedAgreement)
+                handleSendInvite()
+              }}
               disabled={sendingInvite || !inviteEmail.trim()}
             >
               {sendingInvite ? (
