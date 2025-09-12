@@ -68,15 +68,38 @@ export function TemplateSelectionPage() {
   )
 
   const handleSelectTemplate = (template: Template) => {
+    console.log("=== TEMPLATE SELECTION DEBUG ===")
+    console.log("Template clicked:", template.templatename)
+    console.log("Template ID:", template._id)
     setSelectedTemplate(template)
+    console.log("Selected template set to:", template.templatename)
+    
+    // Also open the modal immediately after selection
+    setTimeout(() => {
+      console.log("Opening modal after template selection...")
+      setIsInviteDialogOpen(true)
+    }, 100)
   }
 
   const handleCreateAgreement = async () => {
-    if (!selectedTemplate) return
+    console.log("=== TEMPLATE SELECTION SEND INVITE DEBUG ===")
+    console.log("Selected template:", selectedTemplate)
+    console.log("Invite data:", inviteData)
+    
+    if (!selectedTemplate) {
+      console.log("❌ No template selected")
+      toast({
+        title: "No Template Selected",
+        description: "Please select a template first by clicking on one of the template cards above.",
+        variant: "destructive"
+      })
+      return
+    }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(inviteData.partyBEmail)) {
+      console.log("❌ Invalid email format:", inviteData.partyBEmail)
       toast({
         title: "Invalid Email",
         description: "Please enter a valid email address.",
@@ -86,10 +109,15 @@ export function TemplateSelectionPage() {
     }
 
     try {
+      console.log("✅ Starting agreement creation...")
       setIsCreating(true)
       setError(null)
+      
       const token = localStorage.getItem("auth_token")
+      console.log("Auth token exists:", !!token)
+      
       if (!token) {
+        console.log("❌ No auth token found")
         setError("No authentication token found")
         toast({
           title: "Authentication Error",
@@ -119,8 +147,16 @@ export function TemplateSelectionPage() {
       }
 
       console.log("Creating agreement with data:", agreementData)
+      console.log("Calling createAgreement API...")
+      
+      toast({
+        title: "Creating Agreement...",
+        description: "Sending request to server...",
+        variant: "default"
+      })
+      
       const result = await createAgreement(token, agreementData)
-      console.log("Agreement creation result:", result)
+      console.log("✅ Agreement creation result:", result)
       
       toast({
         title: "Agreement Created Successfully",
@@ -244,15 +280,59 @@ export function TemplateSelectionPage() {
           </Card>
         )}
 
+        {/* Selection Status */}
+        {!loading && !error && (
+          <div className="mb-6">
+            {selectedTemplate ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span className="text-green-800 font-medium">
+                    Template Selected: {selectedTemplate.templatename}
+                  </span>
+                </div>
+                <p className="text-green-700 text-sm mt-1">
+                  Click "Send Invite" below to create an agreement and invite a collaborator.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-yellow-500" />
+                  <span className="text-yellow-800 font-medium">
+                    No Template Selected
+                  </span>
+                </div>
+                <p className="text-yellow-700 text-sm mt-1">
+                  Click on a template card below to select it, then click "Send Invite".
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Templates Grid */}
         {!loading && !error && filteredTemplates.length > 0 && (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredTemplates.map((template) => (
-              <Card key={template._id} className="hover:shadow-md transition-shadow cursor-pointer">
+              <Card 
+                key={template._id} 
+                className={`hover:shadow-md transition-all duration-200 cursor-pointer hover:scale-105 ${
+                  selectedTemplate?._id === template._id 
+                    ? 'ring-2 ring-blue-500 bg-blue-50 shadow-lg' 
+                    : 'hover:ring-2 hover:ring-gray-300'
+                }`}
+                onClick={() => handleSelectTemplate(template)}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg">{template.templatename}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">{template.templatename}</CardTitle>
+                        {selectedTemplate?._id === template._id && (
+                          <CheckCircle className="w-5 h-5 text-blue-500" />
+                        )}
+                      </div>
                       <CardDescription className="mt-1">
                         {template.description || "No description available"}
                       </CardDescription>
@@ -283,7 +363,10 @@ export function TemplateSelectionPage() {
 
                   <Button 
                     className="w-full" 
-                    onClick={() => handleSelectTemplate(template)}
+                    onClick={(e) => {
+                      e.stopPropagation() // Prevent card click
+                      handleSelectTemplate(template)
+                    }}
                     disabled={!template.active}
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -388,7 +471,8 @@ export function TemplateSelectionPage() {
                   Cancel
                 </Button>
                 <Button onClick={() => {
-                  setSelectedTemplate(null)
+                  console.log("=== CONTINUE BUTTON CLICKED ===")
+                  console.log("Selected template before opening modal:", selectedTemplate)
                   setIsInviteDialogOpen(true)
                 }} className="flex-1">
                   <Send className="w-4 h-4 mr-2" />
@@ -401,7 +485,12 @@ export function TemplateSelectionPage() {
       )}
 
       {/* Invite Dialog */}
-      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+      <Dialog open={isInviteDialogOpen} onOpenChange={(open) => {
+        console.log("=== MODAL STATE CHANGE ===")
+        console.log("Modal opening:", open)
+        console.log("Selected template when modal opens:", selectedTemplate)
+        setIsInviteDialogOpen(open)
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -409,12 +498,18 @@ export function TemplateSelectionPage() {
               Send Invite & Create Agreement
             </DialogTitle>
             <DialogDescription>
-              Enter the email address of the party you want to collaborate with using "{selectedTemplate?.templatename}"
+              Enter the email address of the party you want to collaborate with using "{selectedTemplate?.templatename || 'Selected Template'}"
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">
             {/* Template Info */}
+            {(() => {
+              console.log("=== MODAL RENDER DEBUG ===")
+              console.log("Selected template in modal:", selectedTemplate)
+              console.log("Template name:", selectedTemplate?.templatename)
+              return null
+            })()}
             {selectedTemplate && (
               <Card>
                 <CardHeader className="pb-3">
@@ -473,7 +568,13 @@ export function TemplateSelectionPage() {
                 Cancel
               </Button>
               <Button 
-                onClick={handleCreateAgreement}
+                onClick={() => {
+                  console.log("=== TEMPLATE SELECTION BUTTON CLICKED ===")
+                  console.log("Button clicked, isCreating:", isCreating)
+                  console.log("Email:", inviteData.partyBEmail)
+                  console.log("Selected template:", selectedTemplate)
+                  handleCreateAgreement()
+                }}
                 disabled={isCreating || !inviteData.partyBEmail}
               >
                 {isCreating ? (
@@ -484,7 +585,7 @@ export function TemplateSelectionPage() {
                 ) : (
                   <>
                     <Send className="w-4 h-4 mr-2" />
-                    Send Invite
+                    {selectedTemplate ? 'Send Invite' : 'Select Template First'}
                   </>
                 )}
               </Button>

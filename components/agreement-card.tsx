@@ -80,11 +80,22 @@ export function AgreementCard({
     }
   }
 
-  const canSendInvite = !agreement.partyBUserId && !agreement.partyBEmail
+  const canSendInvite = !agreement.partyBUserId
   const canStartAgreement = agreement.status === 'accepted'
   const canDownloadPDF = agreement.status === 'signed' && 
                        agreement.partyASignature && 
                        agreement.partyBSignature
+
+  // Debug logging
+  console.log("Agreement Card Debug:", {
+    agreementId: agreement._id,
+    partyBUserId: agreement.partyBUserId,
+    partyBEmail: agreement.partyBEmail,
+    status: agreement.status,
+    canSendInvite,
+    canStartAgreement,
+    canDownloadPDF
+  })
 
   return (
     <>
@@ -138,10 +149,17 @@ export function AgreementCard({
                 variant="outline" 
                 size="sm" 
                 className="w-full"
-                onClick={() => setShowInviteDialog(true)}
+                onClick={() => {
+                  console.log("=== SEND INVITE BUTTON CLICKED ===")
+                  console.log("Agreement ID:", agreement._id)
+                  console.log("Agreement name:", agreement.templateId?.templatename)
+                  console.log("Can send invite:", canSendInvite)
+                  setShowInviteDialog(true)
+                  console.log("Dialog should be open now")
+                }}
               >
                 <Send className="w-4 h-4 mr-2" />
-                Send Invite
+                {agreement.partyBEmail ? 'Resend Invite' : 'Send Invite'}
               </Button>
             )}
 

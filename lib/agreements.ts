@@ -42,10 +42,22 @@ export async function createAgreement(
   token: string,
   payload: CreateAgreementPayload
 ): Promise<{ message: string; agreement: Agreement; inviteLink?: string }> {
-  const response = await api.post("/agreement/createagreement", payload, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.data;
+  console.log("=== CREATE AGREEMENT API CALL ===")
+  console.log("API URL:", `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/createagreement`)
+  console.log("Payload:", payload)
+  console.log("Token exists:", !!token)
+  
+  try {
+    const response = await api.post("/agreement/createagreement", payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log("✅ Create agreement response:", response.data)
+    return response.data;
+  } catch (error) {
+    console.error("❌ Create agreement error:", error)
+    console.error("Error response:", error.response?.data)
+    throw error
+  }
 }
 
 // --- Update Agreement Status ---

@@ -29,37 +29,79 @@ export function SendInviteDialog({
   const [error, setError] = useState("")
   const { toast } = useToast()
 
+  console.log("SendInviteDialog rendered - isOpen:", isOpen, "agreementId:", agreementId)
+
   const handleSendInvite = async () => {
+    console.log("=== SEND INVITE DIALOG DEBUG ===")
+    console.log("Email:", email)
+    console.log("Agreement ID:", agreementId)
+    console.log("Dialog open:", isOpen)
+    
     // Reset error
     setError("")
     
+    // Show initial toast
+    toast({
+      title: "Starting...",
+      description: "Preparing to send invitation...",
+      variant: "default"
+    })
+    
     // Validate email
     if (!email.trim()) {
+      console.log("❌ No email provided")
       setError("Please enter an email address")
+      toast({
+        title: "Validation Error",
+        description: "Please enter an email address",
+        variant: "destructive"
+      })
       return
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
+      console.log("❌ Invalid email format:", email)
       setError("Please enter a valid email address")
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive"
+      })
       return
     }
 
     try {
+      console.log("✅ Starting API call...")
       setLoading(true)
       
       // Get auth token
       const token = localStorage.getItem("auth_token")
+      console.log("Auth token exists:", !!token)
+      
       if (!token) {
+        console.log("❌ No auth token found")
         setError("Please log in to send invitations")
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to send invitations",
+          variant: "destructive"
+        })
         return
       }
 
-      console.log("Sending invite to:", email)
-      console.log("Agreement ID:", agreementId)
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/send`
+      console.log("API URL:", apiUrl)
+      console.log("Request payload:", { agreementId, inviteeEmail: email })
+
+      toast({
+        title: "Sending...",
+        description: "Sending invitation to server...",
+        variant: "default"
+      })
 
       // Make API call
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/send`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,13 +113,17 @@ export function SendInviteDialog({
         })
       })
 
+      console.log("Response status:", response.status)
+      console.log("Response ok:", response.ok)
+
       const data = await response.json()
+      console.log("Response data:", data)
 
       if (!response.ok) {
         throw new Error(data.message || 'Failed to send invitation')
       }
 
-      console.log("Invite sent successfully:", data)
+      console.log("✅ Invite sent successfully:", data)
 
       toast({
         title: "Invitation Sent!",
@@ -91,7 +137,7 @@ export function SendInviteDialog({
       onClose()
 
     } catch (err: any) {
-      console.error("Error sending invite:", err)
+      console.error("❌ Error sending invite:", err)
       setError(err.message || "Failed to send invitation. Please try again.")
       
       toast({
@@ -162,7 +208,12 @@ export function SendInviteDialog({
             Cancel
           </Button>
           <Button 
-            onClick={handleSendInvite}
+            onClick={() => {
+              console.log("=== SEND BUTTON CLICKED ===")
+              console.log("Button clicked, email:", email)
+              console.log("Loading state:", loading)
+              handleSendInvite()
+            }}
             disabled={loading || !email.trim()}
           >
             {loading ? (
