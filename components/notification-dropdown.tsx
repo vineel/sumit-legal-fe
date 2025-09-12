@@ -18,11 +18,16 @@ import {
   MessageSquare,
   X,
   Eye,
-  CheckCheck
+  CheckCheck,
+  UserPlus,
+  UserCheck,
+  UserX,
+  FileEdit,
+  Trash2
 } from "lucide-react"
 
 export function NotificationDropdown() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification } = useNotifications()
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAllNotifications, removeNotification } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
 
   const getNotificationIcon = (type: string) => {
@@ -37,6 +42,18 @@ export function NotificationDropdown() {
         return <CheckCircle className="w-4 h-4" />
       case 'invitation_received':
         return <Users className="w-4 h-4" />
+      case 'user_registered':
+        return <UserPlus className="w-4 h-4" />
+      case 'user_approved':
+        return <UserCheck className="w-4 h-4" />
+      case 'user_rejected':
+        return <UserX className="w-4 h-4" />
+      case 'template_created':
+        return <FileEdit className="w-4 h-4" />
+      case 'clause_created':
+        return <FileText className="w-4 h-4" />
+      case 'system_alert':
+        return <AlertCircle className="w-4 h-4" />
       default:
         return <Bell className="w-4 h-4" />
     }
@@ -54,6 +71,18 @@ export function NotificationDropdown() {
         return 'text-green-600'
       case 'invitation_received':
         return 'text-purple-600'
+      case 'user_registered':
+        return 'text-orange-600'
+      case 'user_approved':
+        return 'text-green-600'
+      case 'user_rejected':
+        return 'text-red-600'
+      case 'template_created':
+        return 'text-indigo-600'
+      case 'clause_created':
+        return 'text-blue-600'
+      case 'system_alert':
+        return 'text-red-600'
       default:
         return 'text-gray-600'
     }
@@ -79,6 +108,17 @@ export function NotificationDropdown() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Notifications</h3>
             <div className="flex items-center gap-2">
+              {notifications.length > 0 && (
+                <Button
+                  onClick={clearAllNotifications}
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-6 px-2 text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Clear all
+                </Button>
+              )}
               {unreadCount > 0 && (
                 <Button
                   onClick={markAllAsRead}
@@ -143,20 +183,37 @@ export function NotificationDropdown() {
                       <p className="text-xs text-muted-foreground mt-1">
                         {new Date(notification.createdAt).toLocaleString()}
                       </p>
-                      {notification.agreementId && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-2 h-6 px-2 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // Navigate to agreement
-                          }}
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View Agreement
-                        </Button>
-                      )}
+                      <div className="flex gap-2 mt-2">
+                        {notification.agreementId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // Navigate to agreement
+                            }}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View Agreement
+                          </Button>
+                        )}
+                        {notification.userId && (notification.type === 'user_registered') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // Navigate to user management
+                              window.location.href = '/admin?tab=users'
+                            }}
+                          >
+                            <Users className="w-3 h-3 mr-1" />
+                            Manage User
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -77,6 +77,12 @@ export function ForgotPasswordForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
+        <div className="flex justify-start mb-4">
+          <Link href="/portalentry" className="flex items-center text-sm text-muted-foreground hover:text-accent transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back to Portal
+          </Link>
+        </div>
         <CardTitle className="font-heading text-2xl">Reset Password</CardTitle>
         <CardDescription>
           Enter your email address and we'll send you instructions to reset your password

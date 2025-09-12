@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Shield } from "lucide-react"
+import { Shield, ArrowLeft } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 export function AdminLoginForm() {
   const [email, setEmail] = useState("")
@@ -67,6 +68,12 @@ export function AdminLoginForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
+        <div className="flex justify-start mb-4">
+          <Link href="/portalentry" className="flex items-center text-sm text-muted-foreground hover:text-accent transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back to Portal
+          </Link>
+        </div>
         <div className="mx-auto w-12 h-12 bg-accent rounded-full flex items-center justify-center mb-4">
           <Shield className="w-6 h-6 text-accent-foreground" />
         </div>

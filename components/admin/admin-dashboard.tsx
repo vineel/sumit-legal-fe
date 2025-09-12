@@ -22,10 +22,11 @@ import {
   Download,
   RefreshCw,
   Zap,
+  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 import {fetchDashboardStatus,DashboardStatusData,allactivitylogs  } from "@/lib/admin";
-import { UserApproval } from "./user-approval";
+import { UserManagement } from "./user-management";
 import { TemplateManagement } from "./template-management";
 import { ClauseManagement } from "./clause-management";
 import { NotificationDropdown } from "@/components/notification-dropdown";
@@ -84,6 +85,7 @@ interface ActivityLog {
   _id: string;
   usr_id: { _id: string; name: string; email: string };
   type: string;
+  description?: string;
   timestamp: string;
 }
  
@@ -100,18 +102,89 @@ const [fetchError, setFetchError] = useState<string | null>(null);
 
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case "user":
+      case 'user_registered':
         return <Users className="w-4 h-4 text-blue-500" />
-      case "system":
-        return <Settings className="w-4 h-4 text-green-500" />
-      case "session":
-        return <Activity className="w-4 h-4 text-purple-500" />
-      case "template":
-        return <FileText className="w-4 h-4 text-orange-500" />
-      case "ai":
-        return <Zap className="w-4 h-4 text-yellow-500" />
+      case 'user_logged_in':
+        return <Users className="w-4 h-4 text-green-500" />
+      case 'user_approved':
+        return <Users className="w-4 h-4 text-green-600" />
+      case 'user_rejected':
+        return <Users className="w-4 h-4 text-red-500" />
+      case 'profile_updated':
+        return <Settings className="w-4 h-4 text-blue-500" />
+      case 'template_created':
+        return <FileText className="w-4 h-4 text-purple-500" />
+      case 'clause_created':
+        return <Database className="w-4 h-4 text-indigo-500" />
+      case 'agreement_created':
+        return <FileText className="w-4 h-4 text-green-500" />
+      case 'agreement_signed':
+        return <CheckCircle className="w-4 h-4 text-green-600" />
       default:
-        return <Clock className="w-4 h-4 text-gray-500" />
+        return <Activity className="w-4 h-4 text-gray-500" />
+    }
+  }
+
+  const getActivityTitle = (type: string) => {
+    switch (type) {
+      case 'user_registered':
+        return 'New User Registration'
+      case 'user_logged_in':
+        return 'User Login'
+      case 'user_approved':
+        return 'User Approved'
+      case 'user_rejected':
+        return 'User Rejected'
+      case 'profile_updated':
+        return 'Profile Updated'
+      case 'template_created':
+        return 'Template Created'
+      case 'clause_created':
+        return 'Clause Created'
+      case 'agreement_created':
+        return 'Agreement Created'
+      case 'agreement_signed':
+        return 'Agreement Signed'
+      default:
+        return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+  }
+
+  const getActivityType = (type: string) => {
+    switch (type) {
+      case 'user_registered':
+      case 'user_logged_in':
+      case 'user_approved':
+      case 'user_rejected':
+      case 'profile_updated':
+        return 'User'
+      case 'template_created':
+      case 'clause_created':
+        return 'Content'
+      case 'agreement_created':
+      case 'agreement_signed':
+        return 'Agreement'
+      default:
+        return 'System'
+    }
+  }
+
+  const getTimeAgo = (timestamp: string) => {
+    const now = new Date()
+    const time = new Date(timestamp)
+    const diffInSeconds = Math.floor((now.getTime() - time.getTime()) / 1000)
+    
+    if (diffInSeconds < 60) {
+      return 'Just now'
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60)
+      return `${minutes}m ago`
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600)
+      return `${hours}h ago`
+    } else {
+      const days = Math.floor(diffInSeconds / 86400)
+      return `${days}d ago`
     }
   }
 
@@ -296,102 +369,87 @@ useEffect(() => {
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="agreements">Agreements</TabsTrigger>
-            <TabsTrigger value="approvals">User Approvals</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
             <TabsTrigger value="clauses">Clauses</TabsTrigger>
          
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="hover:shadow-md transition-shadow">
+
+            {/* Enhanced Recent Activity - Full Width */}
+            <div className="grid grid-cols-1 gap-6">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="w-5 h-5" />
-                    Clause Bank
-                  </CardTitle>
-                  <CardDescription>Manage clause variants and legal text</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="w-5 h-5" />
+                        Recent Activity
+                      </CardTitle>
+                      <CardDescription>Latest system events and user actions across the platform</CardDescription>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.location.href = '/admin?tab=audit'}
+                    >
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      View Full Log
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-2">
-                    <Button asChild size="sm">
-                      <Link href="/admin/clauses">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Manage Clauses
-                      </Link>
-                    </Button>
+                  <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                    {activities.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Activity className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                        <p className="text-muted-foreground">No recent activity found.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Activity will appear here as users interact with the system.</p>
+                      </div>
+                    ) : (
+                      activities.map((activity) => (
+                        <div key={activity._id} className="flex items-start gap-4 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            {getActivityIcon(activity.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start mb-1">
+                              <div>
+                                <p className="font-medium text-sm text-foreground">
+                                  {getActivityTitle(activity.type)}
+                                </p>
+                                {activity.description && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {activity.description}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                                {getTimeAgo(activity.timestamp)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                                <span className="text-xs font-medium">
+                                  {(activity.usr_id?.name || activity.usr_id?.email || "Unknown")[0].toUpperCase()}
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {activity.usr_id?.name || activity.usr_id?.email || "Unknown user"}
+                              </span>
+                              <Badge variant="secondary" className="text-xs">
+                                {getActivityType(activity.type)}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
-
             </div>
-
-            {/* Recent Activity & Alerts */}
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  {/* Enhanced Recent Activity */}
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <Clock className="w-5 h-5" />
-        Recent Activity
-      </CardTitle>
-      <CardDescription>Latest system events and user actions</CardDescription>
-    </CardHeader>
-    <CardContent>
-      {/* <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
-        {mockStats.recentActivity.map((activity, index) => (
-          <div key={index} className="flex items-start gap-3">
-            {getActivityIcon(activity.type)}
-            <div className="flex-1">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-medium text-sm">{activity.action}</p>
-                  <p className="text-xs text-muted-foreground">{activity.user}</p>
-                </div>
-                <span className="text-xs text-muted-foreground">{activity.time}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div> */}
-      <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
-  {activities.length === 0 ? (
-    <p className="text-muted-foreground text-sm">No recent activity found.</p>
-  ) : (
-    activities.map((activity) => (
-      <div key={activity._id} className="flex items-start gap-3">
-        {getActivityIcon(activity.type)}
-        <div className="flex-1">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="font-medium text-sm">{activity.type.replace(/_/g, " ")}</p>
-              <p className="text-xs text-muted-foreground">
-                {activity.usr_id?.name || activity.usr_id?.email || "Unknown user"}
-              </p>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {new Date(activity.timestamp).toLocaleString()}
-            </span>
-          </div>
-        </div>
-      </div>
-    ))
-  )}
-</div>
-
-      {/* <div className="mt-4">
-        <Button asChild variant="outline" size="sm" className="w-full bg-transparent">
-          <Link href="/admin/audit">View Full Audit Log</Link>
-        </Button>
-      </div> */}
-    </CardContent>
-  </Card>
-  
-
-  {/* Enhanced System Alerts */}
-  {/* ...system alerts card (optional) */}
-</div>
 
           </TabsContent>
 
@@ -400,8 +458,8 @@ useEffect(() => {
             <AgreementManagement userRole="admin" />
           </TabsContent>
 
-          <TabsContent value="approvals" className="space-y-6">
-            <UserApproval />
+          <TabsContent value="users" className="space-y-6">
+            <UserManagement />
           </TabsContent>
 
           <TabsContent value="templates" className="space-y-6">

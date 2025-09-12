@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 export function LoginForm() {
@@ -78,6 +79,12 @@ const handleSubmit = async (e: React.FormEvent) => {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
+        <div className="flex justify-start mb-4">
+          <Link href="/portalentry" className="flex items-center text-sm text-muted-foreground hover:text-accent transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back to Portal
+          </Link>
+        </div>
         <CardTitle className="font-heading text-2xl">Welcome Back</CardTitle>
         <CardDescription>Sign in to your account to continue</CardDescription>
       </CardHeader>

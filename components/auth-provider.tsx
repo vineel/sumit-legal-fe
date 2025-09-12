@@ -10,6 +10,7 @@ interface User {
   email: string
   name: string
   role: UserRole
+  status?: "active" | "pending" | "inactive"
 }
 
 interface AuthContextType {

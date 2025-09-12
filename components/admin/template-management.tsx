@@ -17,8 +17,7 @@ import {
   Loader2,
   CheckCircle,
   Clock,
-  AlertCircle,
-  Eye
+  AlertCircle
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { getTemplates, createTemplate, updateAdminTemplate, deleteAdminTemplate, Template } from "@/lib/templateApi"
@@ -32,9 +31,7 @@ export function TemplateManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
-  const [viewingTemplate, setViewingTemplate] = useState<Template | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const { toast } = useToast()
 
@@ -57,7 +54,7 @@ export function TemplateManagement() {
       
       const token = localStorage.getItem("auth_token")
       if (!token) {
-        setError("No authentication token found")
+        setError("No authentication token found. Please log in again.")
         return
       }
 
@@ -70,27 +67,75 @@ export function TemplateManagement() {
       setClauses(clausesData.clauses || [])
     } catch (err: any) {
       console.error("Error fetching data:", err)
-      setError(err.response?.data?.message || "Failed to fetch data")
+      
+      let errorMessage = "Failed to fetch data"
+      
+      if (err.response?.status === 401) {
+        errorMessage = "Authentication failed. Please log in again."
+      } else if (err.response?.status === 403) {
+        errorMessage = "You don't have permission to access this data"
+      } else if (err.response?.status >= 500) {
+        errorMessage = "Server error. Please try again later."
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
   }
 
   const handleCreateTemplate = async () => {
+    // Validation
+    if (!formData.templatename.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Template name is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!formData.description.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Template description is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (formData.clauses.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one clause for the template",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
       setActionLoading("create")
       
       const token = localStorage.getItem("auth_token")
       if (!token) {
         toast({
-          title: "Error",
-          description: "No authentication token found",
+          title: "Authentication Error",
+          description: "No authentication token found. Please log in again.",
           variant: "destructive"
         })
         return
       }
 
-      await createTemplate(token, formData)
+      const templateData = {
+        templatename: formData.templatename.trim(),
+        description: formData.description.trim(),
+        category: formData.category.trim() || "General",
+        clauses: formData.clauses
+      }
+
+      await createTemplate(token, templateData)
       
       toast({
         title: "Success",
@@ -103,9 +148,24 @@ export function TemplateManagement() {
       fetchTemplates()
     } catch (err: any) {
       console.error("Error creating template:", err)
+      
+      let errorMessage = "Failed to create template"
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.response?.status === 401) {
+        errorMessage = "Authentication failed. Please log in again."
+      } else if (err.response?.status === 403) {
+        errorMessage = "You don't have permission to create templates"
+      } else if (err.response?.status === 400) {
+        errorMessage = "Invalid template data. Please check your input."
+      } else if (err.response?.status >= 500) {
+        errorMessage = "Server error. Please try again later."
+      }
+      
       toast({
         title: "Error",
-        description: err.response?.data?.message || "Failed to create template",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
@@ -116,20 +176,55 @@ export function TemplateManagement() {
   const handleUpdateTemplate = async () => {
     if (!editingTemplate) return
 
+    // Validation
+    if (!formData.templatename.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Template name is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!formData.description.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Template description is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (formData.clauses.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one clause for the template",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
       setActionLoading("update")
       
       const token = localStorage.getItem("auth_token")
       if (!token) {
         toast({
-          title: "Error",
-          description: "No authentication token found",
+          title: "Authentication Error",
+          description: "No authentication token found. Please log in again.",
           variant: "destructive"
         })
         return
       }
 
-      await updateAdminTemplate(token, editingTemplate._id, formData)
+      const templateData = {
+        templatename: formData.templatename.trim(),
+        description: formData.description.trim(),
+        category: formData.category.trim() || "General",
+        clauses: formData.clauses
+      }
+
+      await updateAdminTemplate(token, editingTemplate._id, templateData)
       
       toast({
         title: "Success",
@@ -143,9 +238,26 @@ export function TemplateManagement() {
       fetchTemplates()
     } catch (err: any) {
       console.error("Error updating template:", err)
+      
+      let errorMessage = "Failed to update template"
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.response?.status === 401) {
+        errorMessage = "Authentication failed. Please log in again."
+      } else if (err.response?.status === 403) {
+        errorMessage = "You don't have permission to update templates"
+      } else if (err.response?.status === 404) {
+        errorMessage = "Template not found"
+      } else if (err.response?.status === 400) {
+        errorMessage = "Invalid template data. Please check your input."
+      } else if (err.response?.status >= 500) {
+        errorMessage = "Server error. Please try again later."
+      }
+      
       toast({
         title: "Error",
-        description: err.response?.data?.message || "Failed to update template",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
@@ -154,7 +266,7 @@ export function TemplateManagement() {
   }
 
   const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm("Are you sure you want to delete this template?")) return
+    if (!confirm("Are you sure you want to delete this template? This action cannot be undone.")) return
 
     try {
       setActionLoading(templateId)
@@ -162,8 +274,8 @@ export function TemplateManagement() {
       const token = localStorage.getItem("auth_token")
       if (!token) {
         toast({
-          title: "Error",
-          description: "No authentication token found",
+          title: "Authentication Error",
+          description: "No authentication token found. Please log in again.",
           variant: "destructive"
         })
         return
@@ -180,9 +292,24 @@ export function TemplateManagement() {
       fetchTemplates()
     } catch (err: any) {
       console.error("Error deleting template:", err)
+      
+      let errorMessage = "Failed to delete template"
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.response?.status === 401) {
+        errorMessage = "Authentication failed. Please log in again."
+      } else if (err.response?.status === 403) {
+        errorMessage = "You don't have permission to delete templates"
+      } else if (err.response?.status === 404) {
+        errorMessage = "Template not found"
+      } else if (err.response?.status >= 500) {
+        errorMessage = "Server error. Please try again later."
+      }
+      
       toast({
         title: "Error",
-        description: err.response?.data?.message || "Failed to delete template",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {
@@ -192,19 +319,31 @@ export function TemplateManagement() {
 
   const openEditDialog = (template: Template) => {
     setEditingTemplate(template)
+    
+    // Extract clause IDs from the template
+    let clauseIds: string[] = []
+    if (template.clauses && Array.isArray(template.clauses)) {
+      // If clauses are populated objects, extract their IDs
+      clauseIds = template.clauses.map((clause: any) => 
+        typeof clause === 'string' ? clause : clause._id || clause.id
+      )
+    } else if (template.clauseIds && Array.isArray(template.clauseIds)) {
+      // If clauseIds field exists, use it
+      clauseIds = template.clauseIds
+    }
+    
+    console.log("Template data for editing:", template)
+    console.log("Extracted clause IDs:", clauseIds)
+    
     setFormData({
       templatename: template.templatename,
       description: template.description,
       category: template.category || "",
-      clauses: template.clauses || []
+      clauses: clauseIds
     })
     setIsEditDialogOpen(true)
   }
 
-  const openViewDialog = (template: Template) => {
-    setViewingTemplate(template)
-    setIsViewDialogOpen(true)
-  }
 
   const filteredTemplates = templates.filter(template =>
     template.templatename.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -231,7 +370,10 @@ export function TemplateManagement() {
           <h1 className="text-3xl font-bold">Template Management</h1>
           <p className="text-muted-foreground">Manage document templates and their clauses</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => {
+          setFormData({ templatename: "", description: "", category: "", clauses: [] })
+          setIsCreateDialogOpen(true)
+        }}>
           <Plus className="w-4 h-4 mr-2" />
           Create Template
           </Button>
@@ -280,13 +422,6 @@ export function TemplateManagement() {
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
-                  size="sm"
-                  onClick={() => openViewDialog(template)}
-                >
-                  <Eye className="w-4 h-4" />
-                </Button>
-                <Button 
-                  variant="outline" 
                   size="sm" 
                   className="flex-1"
                   onClick={() => openEditDialog(template)}
@@ -320,7 +455,10 @@ export function TemplateManagement() {
             {searchTerm ? "No templates match your search criteria." : "Get started by creating your first template."}
           </p>
           {!searchTerm && (
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Button onClick={() => {
+              setFormData({ templatename: "", description: "", category: "", clauses: [] })
+              setIsCreateDialogOpen(true)
+            }}>
               <Plus className="w-4 h-4 mr-2" />
               Create Template
             </Button>
@@ -330,8 +468,16 @@ export function TemplateManagement() {
 
       {/* Create Template Dialog */}
       {isCreateDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCreateDialogOpen(false)
+              setFormData({ templatename: "", description: "", category: "", clauses: [] })
+            }
+          }}
+        >
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <CardHeader>
               <CardTitle>Create New Template</CardTitle>
               <CardDescription>Add a new document template</CardDescription>
@@ -363,48 +509,114 @@ export function TemplateManagement() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Select Clauses</label>
-                <div className="max-h-40 overflow-y-auto border rounded-md p-3 space-y-2">
-                  {clauses.map((clause) => (
-                    <div key={clause._id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`clause-${clause._id}`}
-                        checked={formData.clauses.includes(clause._id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData({
-                              ...formData,
-                              clauses: [...formData.clauses, clause._id]
-                            })
-                          } else {
-                            setFormData({
-                              ...formData,
-                              clauses: formData.clauses.filter(id => id !== clause._id)
-                            })
-                          }
-                        }}
-                      />
-                      <label
-                        htmlFor={`clause-${clause._id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {clause.name}
-                      </label>
-                      <Badge variant="outline" className="text-xs">
-                        {clause.category}
-                      </Badge>
-                </div>
-                  ))}
-                  {clauses.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No clauses available. Create clauses first.</p>
-                  )}
-                </div>
+                <label className="text-sm font-medium mb-2 block">Select Clauses</label>
+                {clauses.length === 0 ? (
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                    <FileText className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mb-2">No clauses available</p>
+                    <p className="text-xs text-muted-foreground">Create clauses first to add them to templates</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        {formData.clauses.length} of {clauses.length} clauses selected
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFormData({ ...formData, clauses: clauses.map(c => c._id) })}
+                          className="text-xs"
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFormData({ ...formData, clauses: [] })}
+                          className="text-xs"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto border rounded-lg p-3 space-y-3 bg-muted/20">
+                      {clauses.map((clause) => (
+                        <div 
+                          key={clause._id} 
+                          className={`flex items-start space-x-3 p-3 rounded-lg border transition-all ${
+                            formData.clauses.includes(clause._id) 
+                              ? 'bg-accent/10 border-accent' 
+                              : 'bg-background border-border hover:border-accent/50'
+                          }`}
+                        >
+                          <Checkbox
+                            id={`clause-${clause._id}`}
+                            checked={formData.clauses.includes(clause._id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFormData({
+                                  ...formData,
+                                  clauses: [...formData.clauses, clause._id]
+                                })
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  clauses: formData.clauses.filter(id => id !== clause._id)
+                                })
+                              }
+                            }}
+                            className="mt-1"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <label
+                              htmlFor={`clause-${clause._id}`}
+                              className="text-sm font-medium leading-none cursor-pointer block"
+                            >
+                              {clause.name}
+                            </label>
+                            {clause.description && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                {clause.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="outline" className="text-xs">
+                                {clause.category || "General"}
+                              </Badge>
+                              <Badge 
+                                className={`text-xs ${
+                                  clause.status === 'active' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {clause.status}
+                              </Badge>
+                              {clause.required && (
+                                <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                  Required
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2 pt-4">
                 <Button 
                   variant="outline" 
                   className="flex-1"
-                  onClick={() => setIsCreateDialogOpen(false)}
+                  onClick={() => {
+                    setIsCreateDialogOpen(false)
+                    setFormData({ templatename: "", description: "", category: "", clauses: [] })
+                  }}
                 >
                   Cancel
                 </Button>
@@ -428,8 +640,17 @@ export function TemplateManagement() {
 
       {/* Edit Template Dialog */}
       {isEditDialogOpen && editingTemplate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsEditDialogOpen(false)
+              setEditingTemplate(null)
+              setFormData({ templatename: "", description: "", category: "", clauses: [] })
+            }
+          }}
+        >
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <CardHeader>
               <CardTitle>Edit Template</CardTitle>
               <CardDescription>Update template information</CardDescription>
@@ -461,42 +682,105 @@ export function TemplateManagement() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Select Clauses</label>
-                <div className="max-h-40 overflow-y-auto border rounded-md p-3 space-y-2">
-                  {clauses.map((clause) => (
-                    <div key={clause._id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`clause-${clause._id}`}
-                        checked={formData.clauses.includes(clause._id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData({
-                              ...formData,
-                              clauses: [...formData.clauses, clause._id]
-                            })
-                          } else {
-                            setFormData({
-                              ...formData,
-                              clauses: formData.clauses.filter(id => id !== clause._id)
-                            })
-                          }
-                        }}
-                      />
-                      <label
-                        htmlFor={`clause-${clause._id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {clause.name}
-                      </label>
-                      <Badge variant="outline" className="text-xs">
-                        {clause.category}
-                      </Badge>
+                <label className="text-sm font-medium mb-2 block">Select Clauses</label>
+                {clauses.length === 0 ? (
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                    <FileText className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mb-2">No clauses available</p>
+                    <p className="text-xs text-muted-foreground">Create clauses first to add them to templates</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        {formData.clauses.length} of {clauses.length} clauses selected
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFormData({ ...formData, clauses: clauses.map(c => c._id) })}
+                          className="text-xs"
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFormData({ ...formData, clauses: [] })}
+                          className="text-xs"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
                     </div>
-                  ))}
-                  {clauses.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No clauses available. Create clauses first.</p>
-                  )}
-                </div>
+                    <div className="max-h-60 overflow-y-auto border rounded-lg p-3 space-y-3 bg-muted/20">
+                      {clauses.map((clause) => (
+                        <div 
+                          key={clause._id} 
+                          className={`flex items-start space-x-3 p-3 rounded-lg border transition-all ${
+                            formData.clauses.includes(clause._id) 
+                              ? 'bg-accent/10 border-accent' 
+                              : 'bg-background border-border hover:border-accent/50'
+                          }`}
+                        >
+                          <Checkbox
+                            id={`edit-clause-${clause._id}`}
+                            checked={formData.clauses.includes(clause._id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFormData({
+                                  ...formData,
+                                  clauses: [...formData.clauses, clause._id]
+                                })
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  clauses: formData.clauses.filter(id => id !== clause._id)
+                                })
+                              }
+                            }}
+                            className="mt-1"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <label
+                              htmlFor={`edit-clause-${clause._id}`}
+                              className="text-sm font-medium leading-none cursor-pointer block"
+                            >
+                              {clause.name}
+                            </label>
+                            {clause.description && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                {clause.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="outline" className="text-xs">
+                                {clause.category || "General"}
+                              </Badge>
+                              <Badge 
+                                className={`text-xs ${
+                                  clause.status === 'active' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {clause.status}
+                              </Badge>
+                              {clause.required && (
+                                <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                  Required
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2 pt-4">
                 <Button 
@@ -527,90 +811,6 @@ export function TemplateManagement() {
         </div>
       )}
 
-      {/* View Template Dialog */}
-      {isViewDialogOpen && viewingTemplate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Template Details
-              </CardTitle>
-              <CardDescription>View template information and clauses</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">{viewingTemplate.templatename}</h3>
-                <p className="text-muted-foreground">{viewingTemplate.description}</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Category</label>
-                  <p className="text-sm">{viewingTemplate.category || "General"}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Version</label>
-                  <p className="text-sm">{viewingTemplate.version}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Status</label>
-                  <Badge className={viewingTemplate.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
-                    {viewingTemplate.active ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Created</label>
-                  <p className="text-sm">{new Date(viewingTemplate.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-3 block">Included Clauses</label>
-                <div className="space-y-2">
-                  {viewingTemplate.clauses && viewingTemplate.clauses.length > 0 ? (
-                    viewingTemplate.clauses.map((clauseId) => {
-                      const clause = clauses.find(c => c._id === clauseId)
-                      return clause ? (
-                        <div key={clauseId} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium">{clause.name}</p>
-                            <p className="text-sm text-muted-foreground">{clause.description}</p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Badge variant="outline">{clause.category}</Badge>
-                            <Badge className={clause.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                              {clause.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      ) : (
-                        <div key={clauseId} className="p-3 border rounded-lg text-muted-foreground">
-                          Clause not found (ID: {clauseId})
-                        </div>
-                      )
-                    })
-                  ) : (
-                    <p className="text-muted-foreground">No clauses included in this template.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-4">
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    setIsViewDialogOpen(false)
-                    setViewingTemplate(null)
-                  }}
-                >
-                  Close
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }
