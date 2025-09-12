@@ -1,8 +1,11 @@
-import type React from "react"
+import * as React from "react"
 import type { Metadata } from "next"
 import { DM_Sans, Space_Grotesk } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/components/auth-provider"
+import { NotificationProvider } from "@/components/notification-system"
+import { Toaster } from "@/components/ui/toaster"
+import { ClientOnly } from "@/components/client-only"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -28,8 +31,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${dmSans.variable} ${spaceGrotesk.variable} antialiased`}>
-      <body>
-        <AuthProvider>{children}</AuthProvider>
+                  <body suppressHydrationWarning={true}>
+        
+        <AuthProvider>
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
+        </AuthProvider>
+        <ClientOnly>
+          <Toaster />
+        </ClientOnly>
       </body>
     </html>
   )

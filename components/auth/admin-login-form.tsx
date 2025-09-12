@@ -1,8 +1,8 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -11,14 +11,23 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Shield } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export function AdminLoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
+
+  // If already logged in as non-admin, block and redirect to user dashboard
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      router.replace("/dashboard")
+    }
+  }, [user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,14 +35,30 @@ export function AdminLoginForm() {
     setIsLoading(true)
 
     try {
-      const success = await login(email, password)
-      if (success) {
+      const result = await login(email, password)
+      if (result.success) {
+        toast({
+          title: "Login Successful",
+          description: "Welcome to the admin panel!",
+        })
         router.push("/admin")
       } else {
-        setError("Invalid admin credentials")
+        const errorMessage = result.message || "Invalid admin credentials"
+        setError(errorMessage)
+        toast({
+          title: "Login Failed",
+          description: errorMessage,
+          variant: "destructive",
+        })
       }
-    } catch (err) {
-      setError("An error occurred. Please try again.")
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || "An error occurred. Please try again."
+      setError(errorMessage)
+      toast({
+        title: "Login Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -85,10 +110,7 @@ export function AdminLoginForm() {
           </Button>
         </form>
 
-        <div className="mt-6 p-4 bg-muted rounded-lg">
-          <p className="text-sm text-muted-foreground mb-2">Demo Admin:</p>
-          <div className="text-xs font-mono">admin@demo.com / admin123</div>
-        </div>
+      
       </CardContent>
     </Card>
   )

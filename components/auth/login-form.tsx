@@ -1,9 +1,9 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,28 +16,64 @@ export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const router = useRouter()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
-
-    try {
-      const success = await login(email, password)
-      if (success) {
-        router.push("/dashboard")
-      } else {
-        setError("Invalid email or password")
-      }
-    } catch (err) {
-      setError("An error occurred. Please try again.")
-    } finally {
-      setIsLoading(false)
+  const searchParams = useSearchParams()
+  // If already logged in as admin, block user login and send to admin dashboard
+  useEffect(() => {
+    if (user && user.role === "admin") {
+      router.replace("/admin")
     }
+  }, [user, router])
+
+  // Check for pending approval message
+  useEffect(() => {
+    const message = searchParams.get("message")
+    if (message === "pending_approval") {
+      setSuccessMessage("Account created successfully! Your account is pending admin approval. You will receive an email notification once approved.")
+    }
+    if (message === "account_inactive") {
+      setError("Your account has been deactivated. Please contact support for assistance.")
+    }
+  }, [searchParams])
+
+
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault()
+  //   setError("")
+  //   setIsLoading(true)
+
+  //   try {
+  //     const success = await login(email, password)
+  //     if (success) {
+  //       router.push("/dashboard")
+  //     } else {
+  //       setError("Invalid email or password")
+  //     }
+  //   } catch (err) {
+  //     setError("An error occurred. Please try again.")
+  //   } finally {
+  //     setIsLoading(false)
+  //   }
+  // }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setError("")
+  setIsLoading(true)
+
+  const result = await login(email, password)
+
+  if (result.success) {
+    router.push("/dashboard")
+  } else {
+    setError(result.message || "Login failed. Please try again.")
   }
+
+  setIsLoading(false)
+}
+
 
   return (
     <Card className="w-full max-w-md">
@@ -47,6 +83,11 @@ export function LoginForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {successMessage && (
+            <Alert className="border-green-200 bg-green-50 text-green-800">
+              <AlertDescription>{successMessage}</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -94,13 +135,13 @@ export function LoginForm() {
           </div>
         </div>
 
-        <div className="mt-6 p-4 bg-muted rounded-lg">
+        {/* <div className="mt-6 p-4 bg-muted rounded-lg">
           <p className="text-sm text-muted-foreground mb-2">Demo Accounts:</p>
           <div className="space-y-1 text-xs font-mono">
             <div>party1@demo.com / demo123</div>
             <div>party2@demo.com / demo123</div>
           </div>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   )
