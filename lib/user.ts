@@ -53,20 +53,29 @@ export async function updateUser(payload: UpdateUserPayload): Promise<{ message:
 }
 
 
-// Function to fetch all agreements
 export async function getAgreements(token: string): Promise<Agreement[]> {
+  const response = await api.get("/agreement/allagrements", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+}
+
+ export async function getAgreementById(token: string, id: string): Promise<Agreement> {
   try {
-    const response = await api.get("/allagrements", {
+    const response = await api.get(`/agreement/agreementbyid/${id}`, {
       headers: {
-        Authorization: `Bearer ${token}`, // Attach the JWT token to the request
+        Authorization: `Bearer ${token}`,
       },
     });
-    return response.data; // Return the agreements list
+    return response.data;
   } catch (error) {
-    console.error("Error fetching agreements:", error);
-    throw new Error("Failed to fetch agreements.");
+    console.error(`Error fetching agreement ${id}:`, error);
+    throw new Error("Failed to fetch agreement by ID.");
   }
 }
 
 
+ 
  
