@@ -29,8 +29,8 @@ import {fetchDashboardStatus,DashboardStatusData,allactivitylogs  } from "@/lib/
 import { UserManagement } from "./user-management";
 import { TemplateManagement } from "./template-management";
 import { ClauseManagement } from "./clause-management";
-import { NotificationDropdown } from "@/components/notification-dropdown";
 import { AgreementManagement } from "../agreement-management";
+import { AuditLogs } from "./audit-logs";
 
 
 const mockStats = {
@@ -266,7 +266,6 @@ useEffect(() => {
                 Export Report
               </Button> */}
               <span className="text-sm text-muted-foreground">Welcome, {user?.name}</span>
-              <NotificationDropdown />
               <Button variant="outline" size="sm" onClick={logout}>
                 Sign Out
               </Button>
@@ -366,13 +365,13 @@ useEffect(() => {
         </div>
 
         <Tabs defaultValue="overview" className="mb-8">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="agreements">Agreements</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
             <TabsTrigger value="clauses">Clauses</TabsTrigger>
-         
+            <TabsTrigger value="audit">Audit Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -381,23 +380,11 @@ useEffect(() => {
             <div className="grid grid-cols-1 gap-6">
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <Activity className="w-5 h-5" />
-                        Recent Activity
-                      </CardTitle>
-                      <CardDescription>Latest system events and user actions across the platform</CardDescription>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => window.location.href = '/admin?tab=audit'}
-                    >
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      View Full Log
-                    </Button>
-                  </div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    Recent Activity
+                  </CardTitle>
+                  <CardDescription>Latest system events and user actions across the platform</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
@@ -468,6 +455,10 @@ useEffect(() => {
 
           <TabsContent value="clauses" className="space-y-6">
             <ClauseManagement />
+          </TabsContent>
+
+          <TabsContent value="audit" className="space-y-6">
+            <AuditLogs />
           </TabsContent>
 
           {/* <TabsContent value="system" className="space-y-6">

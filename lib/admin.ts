@@ -69,11 +69,6 @@ export const updateUser = async (
   return response.data;
 };
 
-// Delete a user by ID
-export const deleteUser = async (userId: string): Promise<{ success: boolean; message: string }> => {
-  const response = await api.delete<{ success: boolean; message: string }>(`/admin/deleteUser/${userId}`);
-  return response.data;
-};
 
 
 export const fetchTemplateStats = async (): Promise<TemplateStatsData> => {
@@ -111,6 +106,30 @@ export const approveUser = async (token: string, userId: string): Promise<{ mess
 // Reject user
 export const rejectUser = async (token: string, userId: string): Promise<{ message: string }> => {
   const response = await api.put<{ message: string }>(`/admin/reject-user/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+// Activate user
+export const activateUser = async (token: string, userId: string): Promise<{ message: string }> => {
+  const response = await api.put<{ message: string }>(`/admin/activate-user/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+// Deactivate user
+export const deactivateUser = async (token: string, userId: string, reason?: string): Promise<{ message: string }> => {
+  const response = await api.put<{ message: string }>(`/admin/deactivate-user/${userId}`, { reason }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+// Delete user (updated to use token)
+export const deleteUser = async (token: string, userId: string): Promise<{ message: string }> => {
+  const response = await api.delete<{ message: string }>(`/admin/deleteUser/${userId}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
   return response.data;

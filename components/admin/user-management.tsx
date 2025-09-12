@@ -24,7 +24,7 @@ import {
   RefreshCw
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAllUsers, approveUser, rejectUser, updateUser, deleteUser, User } from "@/lib/admin"
+import { getAllUsers, approveUser, rejectUser, activateUser, deactivateUser, updateUser, deleteUser, User } from "@/lib/admin"
 
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
@@ -143,6 +143,80 @@ export function UserManagement() {
       toast({
         title: "Error",
         description: "Failed to reject user. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleActivateUser = async (userId: string) => {
+    try {
+      setActionLoading(`activate-${userId}`)
+      setError(null)
+      
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        setError("No authentication token found")
+        return
+      }
+
+      await activateUser(token, userId)
+      
+      // Update user status in local state
+      setUsers(prev => prev.map(user => 
+        user.id === userId ? { ...user, status: 'active' } : user
+      ))
+      
+      toast({
+        title: "User Activated",
+        description: "User has been activated successfully and can now login.",
+        variant: "default"
+      })
+    } catch (err) {
+      console.error("Error activating user:", err)
+      setError("Failed to activate user")
+      toast({
+        title: "Error",
+        description: "Failed to activate user. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeactivateUser = async (userId: string) => {
+    const reason = prompt("Please provide a reason for deactivating this user (optional):")
+    
+    try {
+      setActionLoading(`deactivate-${userId}`)
+      setError(null)
+      
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        setError("No authentication token found")
+        return
+      }
+
+      await deactivateUser(token, userId, reason || undefined)
+      
+      // Update user status in local state
+      setUsers(prev => prev.map(user => 
+        user.id === userId ? { ...user, status: 'inactive' } : user
+      ))
+      
+      toast({
+        title: "User Deactivated",
+        description: "User has been deactivated successfully and cannot login.",
+        variant: "default"
+      })
+    } catch (err) {
+      console.error("Error deactivating user:", err)
+      setError("Failed to deactivate user")
+      toast({
+        title: "Error",
+        description: "Failed to deactivate user. Please try again.",
         variant: "destructive"
       })
     } finally {
@@ -405,36 +479,36 @@ export function UserManagement() {
                     </>
                   )}
 
-                  {user.status === 'inactive' && (
+                  {user.status === 'inactive' && user.role !== 'admin' && (
                     <Button
-                      onClick={() => handleApproveUser(user.id)}
-                      disabled={actionLoading === `approve-${user.id}`}
+                      onClick={() => handleActivateUser(user.id)}
+                      disabled={actionLoading === `activate-${user.id}`}
                       className="flex items-center gap-2"
                       size="sm"
                     >
-                      {actionLoading === `approve-${user.id}` ? (
+                      {actionLoading === `activate-${user.id}` ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <CheckCircle className="w-4 h-4" />
+                        <UserCheck className="w-4 h-4" />
                       )}
-                      {actionLoading === `approve-${user.id}` ? "Activating..." : "Activate"}
+                      {actionLoading === `activate-${user.id}` ? "Activating..." : "Activate"}
                     </Button>
                   )}
 
                   {user.status === 'active' && user.role !== 'admin' && (
                     <Button
                       variant="destructive"
-                      onClick={() => handleRejectUser(user.id)}
-                      disabled={actionLoading === `reject-${user.id}`}
+                      onClick={() => handleDeactivateUser(user.id)}
+                      disabled={actionLoading === `deactivate-${user.id}`}
                       className="flex items-center gap-2"
                       size="sm"
                     >
-                      {actionLoading === `reject-${user.id}` ? (
+                      {actionLoading === `deactivate-${user.id}` ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <XCircle className="w-4 h-4" />
+                        <UserX className="w-4 h-4" />
                       )}
-                      {actionLoading === `reject-${user.id}` ? "Deactivating..." : "Deactivate"}
+                      {actionLoading === `deactivate-${user.id}` ? "Deactivating..." : "Deactivate"}
                     </Button>
                   )}
 
