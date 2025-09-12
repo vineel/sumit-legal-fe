@@ -225,6 +225,11 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
 
   // Load agreement data
   useEffect(() => {
+    console.log("=== COLLABORATION WORKSPACE EFFECT ===")
+    console.log("Agreement ID:", agreementId)
+    console.log("User from context:", user)
+    console.log("User from localStorage:", localStorage.getItem('user'))
+    
     const loadAgreement = async () => {
       try {
         setLoading(true)
@@ -234,6 +239,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
           return
         }
 
+        console.log("Loading agreement with ID:", agreementId)
         const agreementData = await getAgreementById(token, agreementId)
         console.log("Agreement loaded:", agreementData)
         setAgreement(agreementData)
@@ -258,7 +264,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     if (agreementId) {
       loadAgreement()
     }
-  }, [agreementId])
+  }, [agreementId, user]) // Add user as dependency
 
   // Auto-scroll chat
   useEffect(() => {
@@ -267,10 +273,79 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     }
   }, [chatMessages])
 
-  // Check if user is party A or B
-  const isPartyA = agreement?.userid?._id === user?.id
-  const isPartyB = agreement?.partyBUserId?._id === user?.id
+  // Get user ID from multiple sources as fallback
+  const storedUser = localStorage.getItem('user')
+  const parsedUser = storedUser ? JSON.parse(storedUser) : null
+  const userId = user?.id || parsedUser?._id || null
+  const userIdStr = userId?.toString()
+  
+  // Check if user is party A or B - use string comparison for consistency
+  const isPartyA = agreement?.userid?._id?.toString() === userIdStr
+  const isPartyB = agreement?.partyBUserId?._id?.toString() === userIdStr
   const isAuthorized = isPartyA || isPartyB
+  
+  // If user is not loaded yet, show loading state
+  if (!user && !parsedUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p>Loading user information...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // If we still don't have a valid user ID, show error
+  if (!userIdStr) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Alert className="max-w-md">
+          <AlertCircle className="w-4 h-4" />
+          <AlertDescription>Unable to load user information. Please try logging in again.</AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+  
+  // Debug authorization
+  console.log("=== FRONTEND AUTHORIZATION DEBUG ===")
+  console.log("Agreement exists:", !!agreement)
+  console.log("User exists:", !!user)
+  console.log("Agreement:", agreement)
+  console.log("User:", user)
+  console.log("Party A ID:", agreement?.userid?._id)
+  console.log("Party B ID:", agreement?.partyBUserId?._id)
+  console.log("Current User ID:", user?.id)
+  console.log("User from localStorage:", localStorage.getItem('user'))
+  console.log("Parsed user from localStorage:", parsedUser)
+  console.log("Parsed user _id:", parsedUser?._id)
+  console.log("User context id:", user?.id)
+  console.log("Final User ID:", userId)
+  console.log("Final User ID string:", userIdStr)
+  console.log("Party A ID string:", agreement?.userid?._id?.toString())
+  console.log("Party B ID string:", agreement?.partyBUserId?._id?.toString())
+  console.log("String comparison Party A:", agreement?.userid?._id?.toString() === userIdStr)
+  console.log("String comparison Party B:", agreement?.partyBUserId?._id?.toString() === userIdStr)
+  console.log("Is Party A:", isPartyA)
+  console.log("Is Party B:", isPartyB)
+  console.log("Is Authorized:", isAuthorized)
+  console.log("Party A ID type:", typeof agreement?.userid?._id)
+  console.log("Party B ID type:", typeof agreement?.partyBUserId?._id)
+  console.log("User ID type:", typeof user?.id)
+  
+  // Additional debugging for the specific case
+  if (agreement && userId) {
+    console.log("=== DETAILED COMPARISON ===")
+    console.log("Party A ObjectId:", agreement.userid?._id)
+    console.log("Party B ObjectId:", agreement.partyBUserId?._id)
+    console.log("User ID from context:", user?.id)
+    console.log("Final User ID:", userId)
+    console.log("Direct comparison Party A:", agreement.userid?._id === userId)
+    console.log("Direct comparison Party B:", agreement.partyBUserId?._id === userId)
+    console.log("String comparison Party A:", agreement.userid?._id?.toString() === userIdStr)
+    console.log("String comparison Party B:", agreement.partyBUserId?._id?.toString() === userIdStr)
+  }
 
   // Handle clause preference update
   const handleClauseUpdate = async (clauseId: string, preference: string) => {
@@ -475,7 +550,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     )
   }
 
-  if (!isAuthorized) {
+  // Only show authorization error if we have both agreement and user data
+  if (agreement && userIdStr && !isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Alert className="max-w-md">
@@ -557,14 +633,38 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
         {/* Main Content */}
         <div className={`flex-1 transition-all duration-300 ${isChatOpen ? 'mr-80' : 'mr-0'}`}>
           <div className="p-6 max-w-4xl mx-auto">
-            {/* Agreement Status */}
+            {/* Agreement Status and Party Info */}
             <div className="mb-6">
-              <Badge 
-                variant={agreement.status === 'signed' ? 'default' : 'secondary'}
-                className="text-lg px-4 py-2"
-              >
-                {agreement.status.toUpperCase()}
-              </Badge>
+              <div className="flex items-center justify-between mb-4">
+                <Badge 
+                  variant={agreement.status === 'signed' ? 'default' : 'secondary'}
+                  className="text-lg px-4 py-2"
+                >
+                  {agreement.status.toUpperCase()}
+                </Badge>
+                <div className="text-sm text-muted-foreground">
+                  Created: {new Date(agreement.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+              
+              {/* Party Information */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">Agreement Parties</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <span className="font-medium">Party A (Creator):</span>
+                    <p className="text-sm text-muted-foreground">
+                      {agreement.userid?.name || 'Unknown'} ({agreement.userid?.email || 'No email'})
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-medium">Party B (Collaborator):</span>
+                    <p className="text-sm text-muted-foreground">
+                      {agreement.partyBUserId?.name || agreement.partyBEmail || 'Not yet joined'}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Clauses */}
@@ -621,10 +721,19 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{clause.name}</CardTitle>
-                        <CardDescription className="mt-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CardTitle className="text-lg">{clause.name}</CardTitle>
+                          <Badge variant={clause.required ? "destructive" : "secondary"}>
+                            {clause.required ? "Required" : "Optional"}
+                          </Badge>
+                        </div>
+                        <CardDescription className="mt-2 text-sm">
                           {clause.description}
                         </CardDescription>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <span>Category: {clause.category}</span>
+                          <span>Status: {clause.status || 'Pending'}</span>
+                        </div>
                       </div>
                       <Badge variant="outline">{clause.category}</Badge>
                     </div>

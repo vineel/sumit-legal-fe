@@ -24,6 +24,7 @@ import {
 import { SendInviteDialog } from "./send-invite-dialog"
 import { deleteAgreement } from "@/lib/agreements"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/components/auth-provider"
 
 interface Agreement {
   _id: string
@@ -66,6 +67,7 @@ export function AgreementCard({
   actionLoading 
 }: AgreementCardProps) {
   const router = useRouter()
+  const { user } = useAuth()
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -96,11 +98,12 @@ export function AgreementCard({
   }
 
   const canSendInvite = !agreement.partyBUserId
-  const canStartAgreement = agreement.status === 'accepted'
+  const canView = agreement.status !== 'signed' // Can view until agreement is signed
   const canDownloadPDF = agreement.status === 'signed' && 
                        agreement.partyASignature && 
                        agreement.partyBSignature
   const canDelete = agreement.status !== 'signed' // Can't delete signed agreements
+  const isPartyA = agreement.userid?._id === user?.id // Only Party A can delete
 
   // Handle delete agreement
   const handleDeleteAgreement = async () => {
@@ -119,6 +122,11 @@ export function AgreementCard({
       console.log("=== DELETE AGREEMENT DEBUG ===")
       console.log("Deleting agreement:", agreement._id)
       console.log("Agreement name:", agreement.templateId?.templatename)
+      console.log("Current User ID:", user?.id)
+      console.log("Is Party A:", isPartyA)
+      console.log("Agreement Status:", agreement.status)
+      console.log("Party A ID:", agreement.userid?._id)
+      console.log("Party B ID:", agreement.partyBUserId?._id)
 
       await deleteAgreement(token, agreement._id)
 
@@ -144,16 +152,17 @@ export function AgreementCard({
   }
 
   // Debug logging
-  console.log("Agreement Card Debug:", {
-    agreementId: agreement._id,
-    partyBUserId: agreement.partyBUserId,
-    partyBEmail: agreement.partyBEmail,
-    status: agreement.status,
-    canSendInvite,
-    canStartAgreement,
-    canDownloadPDF,
-    canDelete
-  })
+  console.log("=== AGREEMENT CARD DEBUG ===")
+  console.log("Agreement ID:", agreement._id)
+  console.log("Party A ID:", agreement.userid?._id)
+  console.log("Party B ID:", agreement.partyBUserId?._id)
+  console.log("Current User ID:", user?.id)
+  console.log("Is Party A:", isPartyA)
+  console.log("Can Delete:", canDelete)
+  console.log("Show Delete Button:", canDelete && isPartyA)
+  console.log("Agreement Status:", agreement.status)
+  console.log("Party A Name:", agreement.userid?.name)
+  console.log("Party B Name:", agreement.partyBUserId?.name)
 
   return (
     <>
@@ -228,42 +237,25 @@ export function AgreementCard({
               </Button>
             )}
 
-            {/* Start Agreement Button */}
-            {canStartAgreement && (
+            {/* View Agreement Button - Both parties can view until signed */}
+            {canView && (
               <Button 
                 size="sm" 
                 className="w-full"
-                onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
+                onClick={() => {
+                  console.log("=== VIEW AGREEMENT BUTTON CLICKED ===")
+                  console.log("Agreement ID:", agreement._id)
+                  console.log("Agreement status:", agreement.status)
+                  console.log("Can view:", canView)
+                  console.log("Navigating to:", `/collaboration?agreementId=${agreement._id}`)
+                  router.push(`/collaboration?agreementId=${agreement._id}`)
+                }}
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Start Collaboration
+                <Eye className="w-4 h-4 mr-2" />
+                View Agreement
               </Button>
             )}
 
-            {/* View/Edit Buttons */}
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex-1"
-                onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                View
-              </Button>
-              
-              {agreement.status === 'in-progress' && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex-1"
-                  onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-              )}
-            </div>
 
             {/* Download PDF Button */}
             {canDownloadPDF && (
@@ -283,8 +275,8 @@ export function AgreementCard({
               </Button>
             )}
 
-            {/* Delete Button */}
-            {canDelete && (
+            {/* Delete Button - Only Party A can delete */}
+            {canDelete && isPartyA && (
               <Button 
                 variant="destructive" 
                 size="sm" 

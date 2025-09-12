@@ -196,10 +196,22 @@ export async function getAgreementById(
   token: string,
   id: string
 ): Promise<Agreement> {
-  const response = await api.get(`/agreement/agreementbyid/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.data;
+  console.log("=== GET AGREEMENT BY ID API CALL ===")
+  console.log("API URL:", `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/agreementbyid/${id}`)
+  console.log("Token exists:", !!token)
+  console.log("Agreement ID:", id)
+  
+  try {
+    const response = await api.get(`/agreement/agreementbyid/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log("✅ Get agreement by ID response:", response.data)
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Get agreement by ID error:", error)
+    console.error("Error response:", error.response?.data)
+    throw error
+  }
 }
 
 // --- Send Invite ---
