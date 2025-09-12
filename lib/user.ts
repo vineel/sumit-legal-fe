@@ -1,4 +1,5 @@
 import api from "./api";
+import { Clause } from "./clause";
 
 export interface UpdateUserPayload {
   name?: string;
@@ -30,7 +31,7 @@ export interface Template {
   userid: string;
   templatename: string;
   description?: string;
-  clauses?: string[];
+  clauses?: string[] | Clause[]; // Can be IDs or populated clause objects
   isCustom?: boolean;
   active: boolean;
   version: string;

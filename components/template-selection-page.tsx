@@ -16,9 +16,12 @@ import {
   Clock, 
   Mail,
   Send,
-  Plus
+  Plus,
+  Loader2
 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import { getTemplates, Template } from "@/lib/user"
+import { Clause } from "@/lib/clause"
 import { createAgreement } from "@/lib/agreements"
 
 export function TemplateSelectionPage() {
@@ -33,6 +36,7 @@ export function TemplateSelectionPage() {
   })
   const [isCreating, setIsCreating] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchTemplates()
@@ -65,7 +69,6 @@ export function TemplateSelectionPage() {
 
   const handleSelectTemplate = (template: Template) => {
     setSelectedTemplate(template)
-    setIsInviteDialogOpen(true)
   }
 
   const handleCreateAgreement = async () => {
@@ -82,7 +85,10 @@ export function TemplateSelectionPage() {
       // Create agreement with invite
       const agreementData = {
         templateId: selectedTemplate._id,
-        clauses: selectedTemplate.clauses || [],
+        clauses: selectedTemplate.clauses ? 
+          selectedTemplate.clauses.map(clause => 
+            typeof clause === 'string' ? clause : (clause._id || clause.id || '')
+          ).filter(id => id !== '') : [],
         partyBEmail: inviteData.partyBEmail,
         effectiveDate: new Date().toISOString().split('T')[0], // Default to today
         termDuration: "1 year", // Default duration
@@ -91,11 +97,27 @@ export function TemplateSelectionPage() {
 
       const result = await createAgreement(token, agreementData)
       
+      toast({
+        title: "Agreement Created",
+        description: `Agreement created successfully and invitation sent to ${inviteData.partyBEmail}`,
+        variant: "default"
+      })
+      
+      // Close dialog and reset form
+      setIsInviteDialogOpen(false)
+      setInviteData({ partyBEmail: "" })
+      setSelectedTemplate(null)
+      
       // Navigate to collaboration workspace
       router.push(`/collaboration?agreementId=${result.agreement._id}`)
     } catch (err) {
       console.error("Error creating agreement:", err)
       setError("Failed to create agreement")
+      toast({
+        title: "Error",
+        description: "Failed to create agreement. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setIsCreating(false)
     }
@@ -250,6 +272,109 @@ export function TemplateSelectionPage() {
         )}
       </div>
 
+      {/* Template Preview */}
+      {selectedTemplate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Template Preview: {selectedTemplate.templatename}</h2>
+              <Button variant="outline" onClick={() => setSelectedTemplate(null)}>
+                Close
+              </Button>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Description</h3>
+                <p className="text-muted-foreground">{selectedTemplate.description || "No description available"}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Version</label>
+                  <p className="text-sm">v{selectedTemplate.version}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Clauses Count</label>
+                  <p className="text-sm">{selectedTemplate.clauses?.length || 0}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Included Clauses</h3>
+                <div className="space-y-3">
+                  {selectedTemplate.clauses && selectedTemplate.clauses.length > 0 ? (
+                    selectedTemplate.clauses.map((clause, index) => {
+                      // Handle both string IDs and populated clause objects
+                      const clauseData = typeof clause === 'string' ? null : clause;
+                      
+                      // Handle clause variants (if the clause object has variants array)
+                      const isVariant = clauseData && clauseData.riskLevel && clauseData.legalText;
+                      const displayName = isVariant ? clauseData.name : (clauseData?.name || `Clause ${index + 1}`);
+                      const displayDescription = isVariant ? clauseData.legalText : (clauseData?.description || "Clause details will be loaded in the agreement");
+                      const displayCategory = isVariant ? 'Variant' : (clauseData?.category || 'General');
+                      const displayStatus = isVariant ? clauseData.status : (clauseData?.status || 'active');
+                      
+                      return (
+                        <div key={clauseData?._id || index} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium">
+                                {displayName}
+                              </h4>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {displayDescription}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              {clauseData && (
+                                <>
+                                  <Badge variant="outline">{displayCategory}</Badge>
+                                  <Badge className={displayStatus === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                                    {displayStatus}
+                                  </Badge>
+                                  {isVariant && clauseData.riskLevel && (
+                                    <Badge className={`${
+                                      clauseData.riskLevel === 'low' ? 'bg-green-100 text-green-800' :
+                                      clauseData.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-red-100 text-red-800'
+                                    }`}>
+                                      {clauseData.riskLevel} risk
+                                    </Badge>
+                                  )}
+                                  {clauseData.required && (
+                                    <Badge className="bg-blue-100 text-blue-800">Required</Badge>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <p className="text-muted-foreground">No clauses included in this template.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <Button variant="outline" onClick={() => setSelectedTemplate(null)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={() => {
+                  setSelectedTemplate(null)
+                  setIsInviteDialogOpen(true)
+                }} className="flex-1">
+                  <Send className="w-4 h-4 mr-2" />
+                  Continue with This Template
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Invite Dialog */}
       <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <DialogContent className="max-w-2xl">
@@ -326,8 +451,8 @@ export function TemplateSelectionPage() {
               >
                 {isCreating ? (
                   <>
-                    <Clock className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating Agreement...
                   </>
                 ) : (
                   <>

@@ -5,6 +5,7 @@ import "./globals.css"
 import { AuthProvider } from "@/components/auth-provider"
 import { NotificationProvider } from "@/components/notification-system"
 import { Toaster } from "@/components/ui/toaster"
+import { ClientOnly } from "@/components/client-only"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -37,7 +38,9 @@ export default function RootLayout({
             {children}
           </NotificationProvider>
         </AuthProvider>
-        <Toaster />
+        <ClientOnly>
+          <Toaster />
+        </ClientOnly>
       </body>
     </html>
   )

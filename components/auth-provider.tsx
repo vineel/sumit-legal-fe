@@ -14,9 +14,9 @@ interface User {
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string; status?: string }>
   logout: () => void
-  signup: (name: string, email: string, password: string) => Promise<boolean>
+  signup: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string; status?: string }>
   resetPassword: (email: string) => Promise<boolean>
   isLoading: boolean
 }
@@ -26,34 +26,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    // Prehydrate user from localStorage to avoid redirect flicker on refresh
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser) as User
-        setUser(normalizeUser(parsed))
-      } catch {}
-    }
+    setIsMounted(true)
+    
+    // Only access localStorage after component is mounted
+    if (typeof window !== 'undefined') {
+      // Prehydrate user from localStorage to avoid redirect flicker on refresh
+      const storedUser = localStorage.getItem("user")
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser) as User
+          setUser(normalizeUser(parsed))
+        } catch {}
+      }
 
-    // Then validate token with backend and refresh user info
-    const token = localStorage.getItem("auth_token")
-    if (token) {
-      getMe()
-        .then((remoteUser) => {
-          const normalized = normalizeUser(remoteUser as unknown as User)
-          setUser(normalized)
-          localStorage.setItem("user", JSON.stringify(normalized))
-        })
-        .catch(() => {
-          localStorage.removeItem("auth_token")
-          localStorage.removeItem("user")
-          setUser(null)
-        })
-        .finally(() => setIsLoading(false))
-    } else {
-      setIsLoading(false)
+      // Then validate token with backend and refresh user info
+      const token = localStorage.getItem("auth_token")
+      if (token) {
+        getMe()
+          .then((remoteUser) => {
+            const normalized = normalizeUser(remoteUser as unknown as User)
+            setUser(normalized)
+            localStorage.setItem("user", JSON.stringify(normalized))
+          })
+          .catch(() => {
+            localStorage.removeItem("auth_token")
+            localStorage.removeItem("user")
+            setUser(null)
+          })
+          .finally(() => setIsLoading(false))
+      } else {
+        setIsLoading(false)
+      }
     }
   }, [])
 

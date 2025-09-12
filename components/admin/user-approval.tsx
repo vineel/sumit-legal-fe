@@ -15,15 +15,18 @@ import {
   Loader2,
   AlertCircle
 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { getAllUsers, approveUser, rejectUser, User } from "@/lib/admin"
 
 interface PendingUser {
-  _id: string
+  id: string
   name: string
   email: string
+  role: string
   status: string
-  createdAt: string
+  createdAt?: string
   address?: {
     city?: string
     state?: string
@@ -39,6 +42,7 @@ export function UserApproval() {
   const [rejecting, setRejecting] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchPendingUsers()
@@ -55,18 +59,10 @@ export function UserApproval() {
         return
       }
 
-      const response = await fetch("/api/admin/pending-users", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch pending users")
-      }
-
-      const data = await response.json()
-      setPendingUsers(data.users || [])
+      const data = await getAllUsers(token)
+      // Filter users with pending status
+      const pendingUsers = data.users.filter((user: User) => user.status === 'pending')
+      setPendingUsers(pendingUsers)
     } catch (err) {
       console.error("Error fetching pending users:", err)
       setError("Failed to load pending users")
@@ -86,23 +82,24 @@ export function UserApproval() {
         return
       }
 
-      const response = await fetch(`/api/admin/approve-user/${userId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to approve user")
-      }
+      await approveUser(token, userId)
 
       // Remove user from pending list
-      setPendingUsers(prev => prev.filter(user => user._id !== userId))
+      setPendingUsers(prev => prev.filter(user => user.id !== userId))
+      
+      toast({
+        title: "User Approved",
+        description: "User has been approved successfully and can now login.",
+        variant: "default"
+      })
     } catch (err) {
       console.error("Error approving user:", err)
       setError("Failed to approve user")
+      toast({
+        title: "Error",
+        description: "Failed to approve user. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setApproving(null)
     }
@@ -119,26 +116,26 @@ export function UserApproval() {
         return
       }
 
-      const response = await fetch(`/api/admin/reject-user/${userId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ reason: rejectReason }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to reject user")
-      }
+      await rejectUser(token, userId)
 
       // Remove user from pending list
-      setPendingUsers(prev => prev.filter(user => user._id !== userId))
+      setPendingUsers(prev => prev.filter(user => user.id !== userId))
       setRejectReason("")
       setSelectedUserId(null)
+      
+      toast({
+        title: "User Rejected",
+        description: "User has been rejected and cannot login.",
+        variant: "default"
+      })
     } catch (err) {
       console.error("Error rejecting user:", err)
       setError("Failed to reject user")
+      toast({
+        title: "Error",
+        description: "Failed to reject user. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setRejecting(null)
     }
@@ -198,8 +195,8 @@ export function UserApproval() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {pendingUsers.map((user) => (
-            <Card key={user._id}>
+          {pendingUsers.map((user, index) => (
+            <Card key={user.id || `user-${index}`}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -218,7 +215,7 @@ export function UserApproval() {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="w-4 h-4" />
-                  Registered: {formatDate(user.createdAt)}
+                  Registered: {user.createdAt ? formatDate(user.createdAt) : 'Unknown'}
                 </div>
 
                 {user.address && (user.address.city || user.address.state || user.address.country) && (
@@ -232,22 +229,22 @@ export function UserApproval() {
 
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => handleApproveUser(user._id)}
-                    disabled={approving === user._id}
+                    onClick={() => handleApproveUser(user.id)}
+                    disabled={approving === user.id}
                     className="flex items-center gap-2"
                   >
-                    {approving === user._id ? (
+                    {approving === user.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <CheckCircle className="w-4 h-4" />
                     )}
-                    {approving === user._id ? "Approving..." : "Approve"}
+                    {approving === user.id ? "Approving..." : "Approve"}
                   </Button>
 
                   <Button
                     variant="destructive"
-                    onClick={() => setSelectedUserId(user._id)}
-                    disabled={rejecting === user._id}
+                    onClick={() => setSelectedUserId(user.id)}
+                    disabled={rejecting === user.id}
                     className="flex items-center gap-2"
                   >
                     <XCircle className="w-4 h-4" />

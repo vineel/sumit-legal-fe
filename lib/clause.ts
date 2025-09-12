@@ -13,7 +13,9 @@ export interface Clause extends ClausePayload {
   _id: string;
   createdAt: string;
   updatedAt: string;
+  createdBy: string;
   variants: ClauseVariant[]; // Added variants array
+  isCustom?: boolean;
 }
 
 export interface ClauseVariant {
@@ -86,3 +88,44 @@ export async function deleteClauseVariant(variantId: string): Promise<{ message:
   const { data } = await api.delete(`/admin/clause/variant/${variantId}`);
   return data;
 }
+
+// Admin clause management functions with token authentication
+export const getAdminClauses = async (token: string): Promise<{ clauses: Clause[] }> => {
+  const response = await api.get<{ clauses: Clause[] }>("/admin/clauses", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+export const createAdminClause = async (token: string, clauseData: {
+  name: string;
+  description: string;
+  category: string;
+  required: boolean;
+  status: string;
+}): Promise<{ message: string; clause: Clause }> => {
+  const response = await api.post<{ message: string; clause: Clause }>("/admin/clauses", clauseData, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+export const updateAdminClause = async (token: string, clauseId: string, clauseData: {
+  name: string;
+  description: string;
+  category: string;
+  required: boolean;
+  status: string;
+}): Promise<{ message: string; clause: Clause }> => {
+  const response = await api.put<{ message: string; clause: Clause }>(`/admin/clauses/${clauseId}`, clauseData, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+export const deleteAdminClause = async (token: string, clauseId: string): Promise<{ message: string }> => {
+  const response = await api.delete<{ message: string }>(`/admin/clauses/${clauseId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};

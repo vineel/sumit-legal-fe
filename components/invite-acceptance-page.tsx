@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Loader2
 } from "lucide-react"
-import { acceptInvitation } from "@/lib/agreements"
+import { useToast } from "@/hooks/use-toast"
+import { acceptInvitation, updateAgreementStatus } from "@/lib/agreements"
 
 interface InviteAcceptancePageProps {
   inviteToken: string
@@ -39,24 +40,32 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
   const [accepting, setAccepting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [inviteDetails, setInviteDetails] = useState<InviteDetails | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
-    // Simulate fetching invite details
-    // In real implementation, this would call an API
-    const mockInviteDetails: InviteDetails = {
-      agreementId: "agreement-123",
-      inviterName: "John Doe",
-      inviterEmail: "john@example.com",
-      templateName: "Standard NDA Template",
-      effectiveDate: "2024-01-15",
-      status: "pending"
-    }
-    
-    setTimeout(() => {
-      setInviteDetails(mockInviteDetails)
-      setLoading(false)
-    }, 1000)
+    fetchInviteDetails()
   }, [inviteToken])
+
+  const fetchInviteDetails = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await fetch(`/api/agreement/invite/${inviteToken}`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch invite details")
+      }
+      
+      setInviteDetails(data.invite)
+    } catch (err) {
+      console.error("Error fetching invite details:", err)
+      setError(err instanceof Error ? err.message : "Failed to load invitation")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleAcceptInvitation = async () => {
     if (!user || !isAuthenticated) {
@@ -77,11 +86,25 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
 
       const result = await acceptInvitation(token, inviteToken)
       
+      // Update agreement status to 'accepted'
+      await updateAgreementStatus(token, result.agreement._id, 'accepted')
+      
+      toast({
+        title: "Invitation Accepted",
+        description: "You have successfully joined the agreement collaboration.",
+        variant: "default"
+      })
+      
       // Redirect to collaboration workspace
       router.push(`/collaboration?agreementId=${result.agreement._id}`)
     } catch (err) {
       console.error("Error accepting invitation:", err)
       setError("Failed to accept invitation. Please try again.")
+      toast({
+        title: "Error",
+        description: "Failed to accept invitation. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setAccepting(false)
     }

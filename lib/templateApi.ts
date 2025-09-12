@@ -76,3 +76,45 @@ export const getTemplateById = async (id: string): Promise<Template> => {
   const response = await api.get<Template>(`/admin/template/single/${id}`);
   return response.data;
 };
+
+// Get templates for admin management
+export const getTemplates = async (token: string): Promise<{ templates: Template[] }> => {
+  const response = await api.get<{ templates: Template[] }>("/admin/templates", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+// Create template
+export const createTemplate = async (token: string, templateData: {
+  templatename: string;
+  description: string;
+  category: string;
+  clauses: string[];
+}): Promise<{ message: string; template: Template }> => {
+  const response = await api.post<{ message: string; template: Template }>("/admin/templates", templateData, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+// Update template (admin version)
+export const updateAdminTemplate = async (token: string, templateId: string, templateData: {
+  templatename: string;
+  description: string;
+  category: string;
+  clauses: string[];
+}): Promise<{ message: string; template: Template }> => {
+  const response = await api.put<{ message: string; template: Template }>(`/admin/templates/${templateId}`, templateData, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+// Delete template (admin version)
+export const deleteAdminTemplate = async (token: string, templateId: string): Promise<{ message: string }> => {
+  const response = await api.delete<{ message: string }>(`/admin/templates/${templateId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Shield } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export function AdminLoginForm() {
   const [email, setEmail] = useState("")
@@ -19,6 +20,7 @@ export function AdminLoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const { login, user } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
 
   // If already logged in as non-admin, block and redirect to user dashboard
   useEffect(() => {
@@ -33,14 +35,30 @@ export function AdminLoginForm() {
     setIsLoading(true)
 
     try {
-      const success = await login(email, password)
-      if (success) {
+      const result = await login(email, password)
+      if (result.success) {
+        toast({
+          title: "Login Successful",
+          description: "Welcome to the admin panel!",
+        })
         router.push("/admin")
       } else {
-        setError("Invalid admin credentials")
+        const errorMessage = result.message || "Invalid admin credentials"
+        setError(errorMessage)
+        toast({
+          title: "Login Failed",
+          description: errorMessage,
+          variant: "destructive",
+        })
       }
-    } catch (err) {
-      setError("An error occurred. Please try again.")
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || "An error occurred. Please try again."
+      setError(errorMessage)
+      toast({
+        title: "Login Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }

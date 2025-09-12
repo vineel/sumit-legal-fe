@@ -26,6 +26,10 @@ import {
 import Link from "next/link";
 import {fetchDashboardStatus,DashboardStatusData,allactivitylogs  } from "@/lib/admin";
 import { UserApproval } from "./user-approval";
+import { TemplateManagement } from "./template-management";
+import { ClauseManagement } from "./clause-management";
+import { NotificationDropdown } from "@/components/notification-dropdown";
+import { AgreementManagement } from "../agreement-management";
 
 
 const mockStats = {
@@ -189,6 +193,7 @@ useEffect(() => {
                 Export Report
               </Button> */}
               <span className="text-sm text-muted-foreground">Welcome, {user?.name}</span>
+              <NotificationDropdown />
               <Button variant="outline" size="sm" onClick={logout}>
                 Sign Out
               </Button>
@@ -288,11 +293,12 @@ useEffect(() => {
         </div>
 
         <Tabs defaultValue="overview" className="mb-8">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="management">Management</TabsTrigger>
+            <TabsTrigger value="agreements">Agreements</TabsTrigger>
             <TabsTrigger value="approvals">User Approvals</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="clauses">Clauses</TabsTrigger>
          
           </TabsList>
 
@@ -319,45 +325,6 @@ useEffect(() => {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
-                    Templates
-                  </CardTitle>
-                  <CardDescription>Upload and manage document templates</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2">
-                    <Button asChild size="sm">
-                      <Link href="/admin/templates">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Manage Templates
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    User Management
-                  </CardTitle>
-                  <CardDescription>Manage user accounts and permissions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2">
-                    <Button asChild size="sm">
-                      <Link href="/admin/users">
-                        <Settings className="w-4 h-4 mr-2" />
-                        Manage Users
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
             {/* Recent Activity & Alerts */}
@@ -428,125 +395,21 @@ useEffect(() => {
 
           </TabsContent>
 
-          <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" />
-                    Top Clause Usage
-                  </CardTitle>
-                  <CardDescription>Most frequently used clauses this month</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockStats.analytics.topClauses.map((clause, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">{clause.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">{clause.usage}%</span>
-                            <TrendingUp
-                              className={`w-3 h-3 ${
-                                clause.trend === "up"
-                                  ? "text-green-500"
-                                  : clause.trend === "down"
-                                    ? "text-red-500"
-                                    : "text-gray-500"
-                              }`}
-                            />
-                          </div>
-                        </div>
-                        <Progress value={clause.usage} className="h-2" />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-5 h-5" />
-                    Weekly Activity
-                  </CardTitle>
-                  <CardDescription>Session activity over the past week</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {mockStats.analytics.userActivity.map((day, index) => (
-                      <div key={index} className="flex items-center gap-3">
-                        <span className="text-sm font-medium w-8">{day.day}</span>
-                        <div className="flex-1">
-                          <Progress value={(day.sessions / 25) * 100} className="h-2" />
-                        </div>
-                        <span className="text-sm text-muted-foreground w-8">{day.sessions}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="management" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Intake Schema Manager</CardTitle>
-                  <CardDescription>Configure intake form structure and questions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full gap-2">
-                    <Settings className="w-4 h-4" />
-                    Configure Intake Schema
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Agreement Structure Editor</CardTitle>
-                  <CardDescription>Manage document templates and clause ordering</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full gap-2">
-                    <FileText className="w-4 h-4" />
-                    Edit Agreement Structure
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>AI Model Configuration</CardTitle>
-                  <CardDescription>Adjust AI suggestion parameters and training</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full gap-2">
-                    <Zap className="w-4 h-4" />
-                    Configure AI Settings
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Bulk Operations</CardTitle>
-                  <CardDescription>Perform batch updates on clauses and templates</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full gap-2">
-                    <Database className="w-4 h-4" />
-                    Run Bulk Operations
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="agreements" className="space-y-6">
+            <AgreementManagement userRole="admin" />
           </TabsContent>
 
           <TabsContent value="approvals" className="space-y-6">
             <UserApproval />
+          </TabsContent>
+
+          <TabsContent value="templates" className="space-y-6">
+            <TemplateManagement />
+          </TabsContent>
+
+          <TabsContent value="clauses" className="space-y-6">
+            <ClauseManagement />
           </TabsContent>
 
           {/* <TabsContent value="system" className="space-y-6">

@@ -91,4 +91,28 @@ export const allactivitylogs = async (): Promise<any> => {
   return res.data; // probably an object, not string
 };
 
+// Get all users for admin management
+export const getAllUsers = async (token: string): Promise<{ users: User[] }> => {
+  const response = await api.get<{ users: User[] }>("/admin/users", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+// Approve user
+export const approveUser = async (token: string, userId: string): Promise<{ message: string }> => {
+  const response = await api.put<{ message: string }>(`/admin/approve-user/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
+// Reject user
+export const rejectUser = async (token: string, userId: string): Promise<{ message: string }> => {
+  const response = await api.put<{ message: string }>(`/admin/reject-user/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
  
