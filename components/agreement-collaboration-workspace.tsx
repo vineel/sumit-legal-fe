@@ -665,8 +665,8 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
   )
 
   const canDownloadPDF = agreement?.status === 'signed' && 
-                        agreement?.partyASignature && 
-                        agreement?.partyBSignature &&
+                        agreement?.partyASigned && 
+                        agreement?.partyBSigned &&
                         allClausesAgreed
 
   const allClausesResolved = allClausesAgreed

@@ -86,6 +86,8 @@ interface Agreement {
   clauses: Clause[]
   partyASignature?: string
   partyBSignature?: string
+  partyASigned?: boolean
+  partyBSigned?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -471,31 +473,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
         }
       }
 
-      // Check if all clauses are accepted by both parties and update status to 'signed'
-      if (updatedAgreement && updatedAgreement.clauses) {
-        const allClausesAccepted = updatedAgreement.clauses.every((clause: any) => 
-          clause.partyAPreference === 'acceptable' && clause.partyBPreference === 'acceptable'
-        )
-        
-        if (allClausesAccepted && updatedAgreement.status !== 'signed') {
-          try {
-            await updateAgreementStatus(token, agreementId, 'signed')
-            // Refresh agreement to get updated status
-            const signedAgreement = await getAgreementById(token, agreementId)
-            if (signedAgreement) {
-              setAgreement(signedAgreement)
-            }
-            
-            toast({
-              title: "Agreement Signed!",
-              description: "All clauses have been accepted by both parties. The agreement is now signed and ready for download.",
-              variant: "default"
-            })
-          } catch (statusError) {
-            console.error("Error updating agreement status:", statusError)
-          }
-        }
-      }
+      // Note: Status will only be set to 'signed' when both parties have actually signed
+      // This happens in the signature upload process, not when clauses are accepted
 
       // Emit real-time update
       socket.emit('update-clause', {
@@ -727,13 +706,50 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
         return
       }
 
-      await updateAgreementStatus(token, agreementId, 'signed')
+      // Check if all clauses have been accepted by both parties
+      if (agreement && agreement.clauses) {
+        const allClausesAccepted = agreement.clauses.every((clause: any) => 
+          clause.partyAPreference === 'acceptable' && clause.partyBPreference === 'acceptable'
+        )
+        
+        if (!allClausesAccepted) {
+          toast({
+            title: "Cannot Sign Yet",
+            description: "All clauses must be accepted by both parties before signing the agreement",
+            variant: "destructive"
+          })
+          return
+        }
+      }
+
+      // Use the proper signature endpoint instead of status update
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/sign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ signatureData: userSignature })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to sign agreement')
+      }
+
+      const result = await response.json()
 
       // Emit real-time signature
       socket.emit('agreement-signed', {
         agreementId,
         [isPartyA ? 'partyASignature' : 'partyBSignature']: userSignature
       })
+
+      // Refresh agreement data
+      const updatedAgreement = await getAgreementById(token, agreementId)
+      if (updatedAgreement) {
+        setAgreement(updatedAgreement)
+      }
 
       toast({
         title: "Agreement Signed",
@@ -948,7 +964,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
             </Button>
 
             {/* Download Buttons */}
-            {agreement.status === 'signed' && (
+            {agreement.status === 'signed' && agreement.partyASigned && agreement.partyBSigned && (
               <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1351,12 +1367,22 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                         disabled={
                           Boolean(isPartyA && agreement.partyASignature) || 
                           Boolean(isPartyB && agreement.partyBSignature) ||
-                          !userSignature
+                          !userSignature ||
+                          !agreement.clauses?.every((clause: any) => 
+                            clause.partyAPreference === 'acceptable' && clause.partyBPreference === 'acceptable'
+                          )
                         }
                         className="bg-green-600 hover:bg-green-700"
                       >
                         <PenTool className="w-4 h-4 mr-2" />
-                        {!userSignature ? 'Upload Signature First' : 'Sign Agreement'}
+                        {!userSignature 
+                          ? 'Upload Signature First' 
+                          : !agreement.clauses?.every((clause: any) => 
+                              clause.partyAPreference === 'acceptable' && clause.partyBPreference === 'acceptable'
+                            )
+                          ? 'All Clauses Must Be Accepted First'
+                          : 'Sign Agreement'
+                        }
                       </Button>
                     </div>
                   </CardContent>

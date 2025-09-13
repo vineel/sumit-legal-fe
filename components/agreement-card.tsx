@@ -49,6 +49,8 @@ interface Agreement {
   jurisdiction?: string
   partyASignature?: string
   partyBSignature?: string
+  partyASigned?: boolean
+  partyBSigned?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -107,8 +109,8 @@ export function AgreementCard({
   
   // For better signature handling, check if both parties have actually signed
   const bothPartiesSigned = agreementIsSigned && 
-                           agreement.partyASignature && 
-                           agreement.partyBSignature
+                           agreement.partyASigned && 
+                           agreement.partyBSigned
   
   const canDownloadPDF = bothPartiesSigned
   const canDownloadDOC = bothPartiesSigned
