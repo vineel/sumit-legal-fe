@@ -88,6 +88,25 @@ export async function updateClausePreferences(
   return response.data;
 }
 
+// --- Update Single Clause Preference ---
+export async function updateSingleClausePreference(
+  token: string,
+  agreementId: string,
+  clauseId: string,
+  preferences: {
+    partyAPreference?: string;
+    partyBPreference?: string;
+  }
+): Promise<{ message: string; agreement: Agreement }> {
+  const response = await api.put(`/agreement/${agreementId}/clauses`, { 
+    clauses: clauseId,
+    ...preferences 
+  }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 // --- Send Chat Message ---
 export async function sendChatMessage(
   token: string,

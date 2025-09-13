@@ -27,6 +27,9 @@ export interface User {
   email: string;
   role: string;
   status?: string;
+  signature?: {
+    url: string;
+  };
   address?: {
     street?: string;
     city?: string;

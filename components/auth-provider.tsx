@@ -11,6 +11,9 @@ interface User {
   name: string
   role: UserRole
   status?: "active" | "pending" | "inactive"
+  signature?: {
+    url: string
+  }
 }
 
 interface AuthContextType {

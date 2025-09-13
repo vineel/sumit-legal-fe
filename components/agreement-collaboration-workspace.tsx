@@ -42,12 +42,16 @@ interface Clause {
   name: string
   description: string
   category: string
-  required: boolean
-  status: string
+  required?: boolean
+  status?: string
   partyAPreference?: string
   partyBPreference?: string
   aiSuggestion?: string
   isResolved?: boolean
+  clauseId?: {
+    name: string
+    description: string
+  }
 }
 
 interface ChatMessage {
@@ -57,6 +61,7 @@ interface ChatMessage {
   senderRole: 'partyA' | 'partyB'
   createdAt: string
 }
+
 
 export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollaborationWorkspaceProps) {
   const { user } = useAuth()
@@ -73,7 +78,9 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
   const [aiSuggestions, setAiSuggestions] = useState<{[key: string]: string}>({})
   const [showSignatures, setShowSignatures] = useState(false)
   const [signature, setSignature] = useState("")
+  const [signatureFile, setSignatureFile] = useState<File | null>(null)
   const [isAddClauseDialogOpen, setIsAddClauseDialogOpen] = useState(false)
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false)
   const [newClauseData, setNewClauseData] = useState({
     name: "",
     description: "",
@@ -238,13 +245,13 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       const preferenceField = isPartyA ? 'partyAPreference' : 'partyBPreference'
 
       const updatedClauses = clauses.map(clause => 
-        clause._id === clauseId 
+        clause.clauseId._id === clauseId 
           ? { ...clause, [preferenceField]: preference }
           : clause
       )
 
       await updateClausePreferences(token, agreementId, updatedClauses.map(clause => ({
-        clauseId: clause._id,
+        clauseId: clause.clauseId._id,
         partyAPreference: clause.partyAPreference,
         partyBPreference: clause.partyBPreference
       })))
@@ -362,22 +369,32 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
 
       const result = await sendChatMessage(token, agreementId, newMessage, senderRole)
       
+      // Create message object for real-time update
+      const messageData: ChatMessage = {
+            _id: result.chatMessage._id,
+        message: newMessage,
+        senderRole: senderRole as 'partyA' | 'partyB',
+            senderName: user?.name || 'Unknown User',
+            createdAt: new Date().toISOString()
+          }
+
+      // Add to local state immediately for better UX
+      setChatMessages(prev => [...prev, messageData])
+      
       // Emit real-time message
       if (socket) {
         socket.emit('send-message', {
           agreementId,
-          message: {
-            _id: result.chatMessage._id,
-            text: newMessage,
-            senderRole: senderRole,
-            senderName: user?.name || 'Unknown User',
-            createdAt: new Date().toISOString()
-          }
+          message: messageData
         })
       }
 
       setNewMessage("")
-      fetchChatMessages()
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
     } catch (err) {
       console.error("Error sending message:", err)
       toast({
@@ -393,26 +410,37 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
-      const response = await fetch('/api/admin/generate', {
+      const clause = clauses.find(c => c._id === clauseId)
+      if (!clause) return
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/generate-clause-suggestion`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          prompt: `Generate an AI suggestion for resolving this clause conflict. The clause is about: ${clauses.find(c => c._id === clauseId)?.name}`
+          clauseName: clause.name,
+          clauseDescription: clause.description,
+          partyAPreference: clause.partyAPreference,
+          partyBPreference: clause.partyBPreference,
+          agreementType: agreement?.templateId?.templatename || 'Legal Agreement'
         })
       })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate AI suggestion')
+      }
 
       const data = await response.json()
       setAiSuggestions(prev => ({
         ...prev,
-        [clauseId]: data.response
+        [clauseId]: data.suggestion
       }))
 
       toast({
         title: "AI Suggestion Generated",
-        description: "AI has provided a suggestion for this clause",
+        description: "AI has provided a detailed suggestion for this clause",
         variant: "default"
       })
     } catch (err) {
@@ -425,11 +453,56 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
     }
   }
 
+  const handleSignatureUpload = async (file: File) => {
+    try {
+      setIsUploadingSignature(true)
+      const token = localStorage.getItem("auth_token")
+      if (!token) return
+
+      const formData = new FormData()
+      formData.append('signature', file)
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/user/upload-signature`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to upload signature')
+      }
+
+      const result = await response.json()
+      
+      // Update user signature in local state
+      if (user) {
+        user.signature = { url: result.signatureUrl }
+      }
+
+      toast({
+        title: "Signature Uploaded",
+        description: "Your signature has been saved to your profile",
+        variant: "default"
+      })
+    } catch (err) {
+      console.error("Error uploading signature:", err)
+      toast({
+        title: "Error",
+        description: "Failed to upload signature",
+        variant: "destructive"
+      })
+    } finally {
+      setIsUploadingSignature(false)
+    }
+  }
+
   const handleSignAgreement = async () => {
-    if (!signature.trim()) {
+    if (!signature.trim() && !user?.signature?.url) {
       toast({
         title: "Signature Required",
-        description: "Please provide your signature",
+        description: "Please provide your signature or upload a signature image",
         variant: "destructive"
       })
       return
@@ -443,6 +516,9 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
       const signedBy = isPartyA ? 'partyA' : 'partyB'
 
+      // Use stored signature URL if available, otherwise use text signature
+      const signatureData = user?.signature?.url || signature
+
       // Call sign agreement API
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/agreement/${agreementId}/sign`, {
         method: 'POST',
@@ -451,7 +527,8 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          signatureData: signature
+          signatureData: signatureData,
+          signatureType: user?.signature?.url ? 'image' : 'text'
         })
       })
 
@@ -465,8 +542,8 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       // Update local state
       setAgreement((prev: any) => prev ? {
         ...prev,
-        partyASignature: isPartyA ? signature : prev.partyASignature,
-        partyBSignature: !isPartyA ? signature : prev.partyBSignature,
+        partyASignature: isPartyA ? signatureData : prev.partyASignature,
+        partyBSignature: !isPartyA ? signatureData : prev.partyBSignature,
         status: result.agreement.status
       } : null)
 
@@ -500,7 +577,7 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       if (!token) return
 
       // Generate PDF first
-      const response = await fetch(`/api/agreement/${agreementId}/generate-pdf`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/agreement/${agreementId}/generate-pdf`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -533,6 +610,50 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       toast({
         title: "Error",
         description: "Failed to download PDF",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDownloadDOC = async () => {
+    try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) return
+
+      // Generate DOC first
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/agreement/${agreementId}/generate-doc`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate DOC')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `agreement-${agreement.templateId?.templatename || 'agreement'}-${new Date().toISOString().split('T')[0]}.docx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Download Started",
+        description: "Agreement DOC is being downloaded",
+        variant: "default"
+      })
+    } catch (err) {
+      console.error("Error downloading DOC:", err)
+      toast({
+        title: "Error",
+        description: "Failed to download DOC",
         variant: "destructive"
       })
     }
@@ -593,10 +714,16 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
           </div>
           <div className="flex gap-2">
             {canDownloadPDF && (
-              <Button onClick={handleDownloadPDF}>
+              <div className="flex gap-2">
+                <Button onClick={handleDownloadPDF} variant="outline">
                 <Download className="w-4 h-4 mr-2" />
-                Download PDF
+                  PDF
               </Button>
+                <Button onClick={handleDownloadDOC} variant="outline">
+                  <Download className="w-4 h-4 mr-2" />
+                  DOC
+                </Button>
+              </div>
             )}
             <Button variant="outline" onClick={() => router.back()}>
               Back
@@ -622,103 +749,193 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
             </Button>
           </div>
           <div className="grid gap-6">
-            {clauses.map((clause) => (
+            {clauses.map((clause) => {
+              console.log('Clause data:', clause);
+              return (
               <Card key={clause._id}>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span>{clause.name}</span>
-                    {clause.partyAPreference && clause.partyBPreference && clause.partyAPreference === clause.partyBPreference ? (
-                      <Badge className="bg-green-100 text-green-800">
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Agreed
-                      </Badge>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-semibold text-gray-900">
+                        {clause.clauseId?.name || clause.name || 'Clause'}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        Category: {clause.category || 'General'} | Status: {clause.status || 'Active'}
+                      </span>
+                    </div>
+                    {clause.partyAPreference && clause.partyBPreference ? (
+                      (clause.partyAPreference === 'preferred' && clause.partyBPreference === 'preferred') ||
+                      (clause.partyAPreference === 'acceptable' && clause.partyBPreference === 'acceptable') ||
+                      (clause.partyAPreference === 'preferred' && clause.partyBPreference === 'acceptable') ||
+                      (clause.partyAPreference === 'acceptable' && clause.partyBPreference === 'preferred') ? (
+                        <Badge className="bg-green-100 text-green-800 border border-green-300 font-semibold">
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          BOTH AGREED
+                        </Badge>
+                      ) : (clause.partyAPreference === 'unacceptable' || clause.partyBPreference === 'unacceptable') ? (
+                        <Badge className="bg-red-100 text-red-800 border border-red-300 font-semibold">
+                          <XCircle className="w-4 h-4 mr-1" />
+                          REJECTED
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 font-semibold">
+                          <Clock className="w-4 h-4 mr-1" />
+                          IN DISCUSSION
+                        </Badge>
+                      )
                     ) : (
-                      <Badge className="bg-yellow-100 text-yellow-800">
+                      <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 font-semibold">
                         <Clock className="w-4 h-4 mr-1" />
-                        Pending Agreement
+                        PENDING
                       </Badge>
                     )}
                   </CardTitle>
-                  <CardDescription>{clause.description}</CardDescription>
+                  <CardDescription>{clause.clauseId?.description || clause.description || 'No description available'}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Party Preferences */}
                   <div className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <Label>Party A {agreement?.userid?.toString() === user?.id?.toString() ? '(You)' : ''}</Label>
+                        <Label className="flex items-center gap-2">
+                          Party A {agreement?.userid?.toString() === user?.id?.toString() ? '(You)' : ''}
+                          {clause.partyAPreference ? (
+                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                              clause.partyAPreference === 'preferred' ? 'bg-green-100 text-green-800 border border-green-200' :
+                              clause.partyAPreference === 'acceptable' ? 'bg-green-100 text-green-800 border border-green-200' :
+                              clause.partyAPreference === 'unacceptable' ? 'bg-red-100 text-red-800 border border-red-200' :
+                              'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                            }`}>
+                              {clause.partyAPreference === 'preferred' ? '✓ ACCEPTED' :
+                               clause.partyAPreference === 'acceptable' ? '✓ ACCEPTED' :
+                               clause.partyAPreference === 'unacceptable' ? '✗ REJECTED' :
+                               'Modified'}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                              No Decision
+                            </span>
+                          )}
+                        </Label>
                         <div className="space-y-2">
                           <div className="flex gap-2">
                             <Button
                               size="sm"
                               variant={clause.partyAPreference === 'preferred' ? 'default' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'preferred')}
+                              className={clause.partyAPreference === 'preferred' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+                              onClick={() => handleClauseUpdate(clause.clauseId._id, 'preferred')}
                               disabled={saving || agreement?.userid?.toString() !== user?.id?.toString()}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Preferred
+                              {clause.partyAPreference === 'preferred' ? '✓ Preferred' : 'Preferred'}
                             </Button>
                             <Button
                               size="sm"
                               variant={clause.partyAPreference === 'acceptable' ? 'default' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'acceptable')}
+                              className={clause.partyAPreference === 'acceptable' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                              onClick={() => handleClauseUpdate(clause.clauseId._id, 'acceptable')}
                               disabled={saving || agreement?.userid?.toString() !== user?.id?.toString()}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Acceptable
+                              {clause.partyAPreference === 'acceptable' ? '✓ Acceptable' : 'Acceptable'}
                             </Button>
                             <Button
                               size="sm"
                               variant={clause.partyAPreference === 'unacceptable' ? 'destructive' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'unacceptable')}
+                              className={clause.partyAPreference === 'unacceptable' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+                              onClick={() => handleClauseUpdate(clause.clauseId._id, 'unacceptable')}
                               disabled={saving || agreement?.userid?.toString() !== user?.id?.toString()}
                             >
                               <XCircle className="w-4 h-4 mr-1" />
-                              Unacceptable
+                              {clause.partyAPreference === 'unacceptable' ? '✗ Unacceptable' : 'Unacceptable'}
                             </Button>
                           </div>
                           {clause.partyAPreference && (
-                            <div className="p-3 bg-muted rounded-lg">
-                              <p className="text-sm font-medium">Party A: {clause.partyAPreference}</p>
+                            <div className={`p-3 rounded-lg ${
+                              clause.partyAPreference === 'preferred' ? 'bg-green-50 border border-green-200' :
+                              clause.partyAPreference === 'acceptable' ? 'bg-blue-50 border border-blue-200' :
+                              'bg-red-50 border border-red-200'
+                            }`}>
+                              <p className="text-sm font-medium">
+                                Party A: <span className="capitalize">{clause.partyAPreference}</span>
+                                {clause.partyAPreference === 'preferred' && ' ✅'}
+                                {clause.partyAPreference === 'acceptable' && ' ✓'}
+                                {clause.partyAPreference === 'unacceptable' && ' ❌'}
+                              </p>
                             </div>
                           )}
                         </div>
                       </div>
                       <div>
-                        <Label>Party B {agreement?.partyBUserId?.toString() === user?.id?.toString() ? '(You)' : ''}</Label>
+                        <Label className="flex items-center gap-2">
+                          Party B {agreement?.partyBUserId?.toString() === user?.id?.toString() ? '(You)' : ''}
+                          {clause.partyBPreference ? (
+                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                              clause.partyBPreference === 'preferred' ? 'bg-green-100 text-green-800 border border-green-200' :
+                              clause.partyBPreference === 'acceptable' ? 'bg-green-100 text-green-800 border border-green-200' :
+                              clause.partyBPreference === 'unacceptable' ? 'bg-red-100 text-red-800 border border-red-200' :
+                              'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                            }`}>
+                              {clause.partyBPreference === 'preferred' ? '✓ ACCEPTED' :
+                               clause.partyBPreference === 'acceptable' ? '✓ ACCEPTED' :
+                               clause.partyBPreference === 'unacceptable' ? '✗ REJECTED' :
+                               'Modified'}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                              No Decision
+                            </span>
+                          )}
+                        </Label>
                         <div className="space-y-2">
                           <div className="flex gap-2">
                             <Button
                               size="sm"
                               variant={clause.partyBPreference === 'preferred' ? 'default' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'preferred')}
+                              className={clause.partyBPreference === 'preferred' ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
+                              onClick={() => handleClauseUpdate(clause.clauseId._id, 'preferred')}
                               disabled={saving || agreement?.partyBUserId?.toString() !== user?.id?.toString()}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Preferred
+                              {clause.partyBPreference === 'preferred' ? '✓ Accepted' : 'Accept'}
                             </Button>
                             <Button
                               size="sm"
                               variant={clause.partyBPreference === 'acceptable' ? 'default' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'acceptable')}
+                              className={clause.partyBPreference === 'acceptable' ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' : 'hover:bg-green-50 border-green-200'}
+                              onClick={() => handleClauseUpdate(clause.clauseId._id, 'acceptable')}
                               disabled={saving || agreement?.partyBUserId?.toString() !== user?.id?.toString()}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Acceptable
+                              {clause.partyBPreference === 'acceptable' ? '✓ Accepted' : 'Accept'}
                             </Button>
                             <Button
                               size="sm"
                               variant={clause.partyBPreference === 'unacceptable' ? 'destructive' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'unacceptable')}
+                              className={clause.partyBPreference === 'unacceptable' ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
+                              onClick={() => handleClauseUpdate(clause.clauseId._id, 'unacceptable')}
                               disabled={saving || agreement?.partyBUserId?.toString() !== user?.id?.toString()}
                             >
                               <XCircle className="w-4 h-4 mr-1" />
-                              Unacceptable
+                              {clause.partyBPreference === 'unacceptable' ? '✗ Rejected' : 'Reject'}
                             </Button>
                           </div>
                           {clause.partyBPreference && (
-                            <div className="p-3 bg-muted rounded-lg">
-                              <p className="text-sm font-medium">Party B: {clause.partyBPreference}</p>
+                            <div className={`p-3 rounded-lg ${
+                              clause.partyBPreference === 'preferred' ? 'bg-green-50 border border-green-200' :
+                              clause.partyBPreference === 'acceptable' ? 'bg-green-50 border border-green-200' :
+                              'bg-red-50 border border-red-200'
+                            }`}>
+                              <p className="text-sm font-medium">
+                                Party B: <span className="capitalize">
+                                  {clause.partyBPreference === 'preferred' ? 'Accepted' :
+                                   clause.partyBPreference === 'acceptable' ? 'Accepted' :
+                                   'Rejected'}
+                                </span>
+                                {clause.partyBPreference === 'preferred' && ' ✅'}
+                                {clause.partyBPreference === 'acceptable' && ' ✅'}
+                                {clause.partyBPreference === 'unacceptable' && ' ❌'}
+                              </p>
                             </div>
                           )}
                         </div>
@@ -729,25 +946,40 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                   {/* AI Suggestion */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>AI Suggestion</Label>
+                      <Label className="flex items-center gap-2">
+                        <Lightbulb className="w-4 h-4" />
+                        AI Suggestion
+                      </Label>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleGenerateAISuggestion(clause._id)}
+                        disabled={saving}
                       >
                         <Lightbulb className="w-4 h-4 mr-2" />
-                        Generate Suggestion
+                        {aiSuggestions[clause._id] ? 'Regenerate' : 'Generate'} Suggestion
                       </Button>
                     </div>
                     {aiSuggestions[clause._id] && (
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm">{aiSuggestions[clause._id]}</p>
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Lightbulb className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-blue-900 mb-2">AI Recommendation</h4>
+                            <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">
+                              {aiSuggestions[clause._id]}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </TabsContent>
 
@@ -764,9 +996,16 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
               <div className="space-y-4">
                 {/* Messages */}
                 <div className="h-96 overflow-y-auto space-y-4 border rounded-lg p-4">
-                  {chatMessages.map((message) => {
+                  {chatMessages.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No messages yet. Start the conversation!</p>
+                    </div>
+                  ) : (
+                    chatMessages.map((message) => {
                     const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
                     const isMyMessage = (isPartyA && message.senderRole === 'partyA') || (!isPartyA && message.senderRole === 'partyB')
+                      const isPartyAMessage = message.senderRole === 'partyA'
                     
                     return (
                       <div
@@ -777,10 +1016,19 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                           className={`max-w-xs p-3 rounded-lg ${
                             isMyMessage
                               ? 'bg-blue-500 text-white'
-                              : 'bg-gray-100 text-gray-900'
-                          }`}
-                        >
-                          <p className="text-sm font-medium">{message.senderName}</p>
+                                : isPartyAMessage
+                                ? 'bg-green-100 text-green-900 border border-green-200'
+                                : 'bg-gray-100 text-gray-900 border border-gray-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                isPartyAMessage ? 'bg-green-500' : 'bg-blue-500'
+                              }`}></div>
+                              <p className="text-sm font-medium">
+                                {isPartyAMessage ? 'Party A' : 'Party B'} - {message.senderName}
+                              </p>
+                            </div>
                           <p className="text-sm">{message.message}</p>
                           <p className="text-xs opacity-70 mt-1">
                             {new Date(message.createdAt).toLocaleTimeString()}
@@ -788,7 +1036,8 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                         </div>
                       </div>
                     )
-                  })}
+                    })
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -840,18 +1089,80 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                 const signatureField = isPartyA ? 'partyASignature' : 'partyBSignature'
                 return !agreement[signatureField]
               })() && (
-                <div className="space-y-4">
-                  <div>
-                    <Label>Your Digital Signature</Label>
+                <div className="space-y-6">
+                  {/* Stored Signature Display */}
+                  {user?.signature?.url && (
+                    <div className="space-y-2">
+                      <Label>Your Stored Signature</Label>
+                      <div className="p-4 border rounded-lg bg-gray-50">
+                        <img 
+                          src={user.signature.url} 
+                          alt="Your signature" 
+                          className="max-w-xs h-20 object-contain border rounded"
+                        />
+                        <p className="text-sm text-muted-foreground mt-2">
+                          This signature will be used for signing the agreement
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Signature Upload */}
+                  <div className="space-y-2">
+                    <Label>Upload Signature Image</Label>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            setSignatureFile(file)
+                            handleSignatureUpload(file)
+                          }
+                        }}
+                        className="hidden"
+                        id="signature-upload"
+                        disabled={isUploadingSignature}
+                      />
+                      <label
+                        htmlFor="signature-upload"
+                        className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {isUploadingSignature ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <PenTool className="w-4 h-4" />
+                        )}
+                        {isUploadingSignature ? 'Uploading...' : 'Upload Signature Image'}
+                      </label>
+                      {signatureFile && (
+                        <span className="text-sm text-green-600">
+                          ✓ {signatureFile.name}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a PNG or JPG image of your signature (max 2MB)
+                    </p>
+                  </div>
+
+                  {/* Text Signature Alternative */}
+                  <div className="space-y-2">
+                    <Label>Or Type Your Digital Signature</Label>
                     <div className="space-y-2">
                       <Textarea
                         value={signature}
                         onChange={(e) => setSignature(e.target.value)}
                         placeholder="Type your full name as your digital signature..."
                         rows={3}
+                        disabled={!!user?.signature?.url}
                       />
                       <p className="text-xs text-muted-foreground">
-                        By typing your name above, you are providing your digital signature and agreeing to the terms of this agreement.
+                        {user?.signature?.url 
+                          ? "You have a stored signature image. Clear the image above to use text signature."
+                          : "By typing your name above, you are providing your digital signature and agreeing to the terms of this agreement."
+                        }
                       </p>
                     </div>
                   </div>
@@ -862,12 +1173,13 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                       <li>• All clauses must be agreed upon by both parties</li>
                       <li>• Your signature will be legally binding</li>
                       <li>• Both parties must sign before the agreement is complete</li>
+                      <li>• You can use either a signature image or typed signature</li>
                     </ul>
                   </div>
 
                   <Button 
                     onClick={handleSignAgreement}
-                    disabled={!signature.trim() || !allClausesResolved}
+                    disabled={(!signature.trim() && !user?.signature?.url) || !allClausesResolved}
                     className="w-full"
                   >
                     <PenTool className="w-4 h-4 mr-2" />
@@ -884,13 +1196,23 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                 </div>
               )}
 
-              {/* Download PDF */}
+              {/* Download Options */}
               {canDownloadPDF && (
-                <div className="text-center">
-                  <Button onClick={handleDownloadPDF} size="lg">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-center">Download Final Agreement</h4>
+                  <div className="flex gap-4 justify-center">
+                    <Button onClick={handleDownloadPDF} size="lg" variant="outline">
                     <Download className="w-4 h-4 mr-2" />
-                    Download Final Agreement PDF
+                      Download PDF
+                    </Button>
+                    <Button onClick={handleDownloadDOC} size="lg" variant="outline">
+                      <Download className="w-4 h-4 mr-2" />
+                      Download DOC
                   </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Choose your preferred format for the final agreement document
+                  </p>
                 </div>
               )}
             </CardContent>

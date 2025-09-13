@@ -33,7 +33,7 @@ import {
   Bot
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAgreementById, updateClausePreferences, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF } from "@/lib/agreements"
+import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF } from "@/lib/agreements"
 import { useAuth } from "@/components/auth-provider"
 
 interface RealTimeCollaborationWorkspaceProps {
@@ -42,15 +42,23 @@ interface RealTimeCollaborationWorkspaceProps {
 
 interface Clause {
   _id: string
-  name: string
-  description: string
-  category: string
-  required: boolean
-  status: string
+  name?: string
+  description?: string
+  category?: string
+  required?: boolean
+  status?: string
   partyAPreference?: string
   partyBPreference?: string
   aiSuggestion?: string
   isResolved?: boolean
+  clauseId?: {
+    _id: string
+    name: string
+    category: string
+    description: string
+    required: boolean
+    status: string
+  }
 }
 
 interface Agreement {
@@ -356,9 +364,20 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
-      await updateClausePreferences(token, agreementId, clauseId, {
+      const response = await updateSingleClausePreference(token, agreementId, clauseId, {
         [isPartyA ? 'partyAPreference' : 'partyBPreference']: preference
       })
+
+      // Update local state immediately
+      if (response && response.agreement) {
+        setAgreement(response.agreement)
+      } else {
+        // Fallback: refresh agreement data if response doesn't contain updated agreement
+        const updatedAgreement = await getAgreementById(token, agreementId)
+        if (updatedAgreement) {
+          setAgreement(updatedAgreement)
+        }
+      }
 
       // Emit real-time update
       socket.emit('update-clause', {
@@ -716,116 +735,205 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
               )}
 
               {/* Clauses List */}
-              {agreement.clauses.map((clause, index) => (
-                <Card key={clause._id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CardTitle className="text-lg">{clause.name}</CardTitle>
-                          <Badge variant={clause.required ? "destructive" : "secondary"}>
-                            {clause.required ? "Required" : "Optional"}
-                          </Badge>
-                        </div>
-                        <CardDescription className="mt-2 text-sm">
-                          {clause.description}
-                        </CardDescription>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>Category: {clause.category}</span>
-                          <span>Status: {clause.status || 'Pending'}</span>
-                        </div>
-                      </div>
-                      <Badge variant="outline">{clause.category}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Party Preferences */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium">
-                            Party A {isPartyA ? '(You)' : ''}
-                          </Label>
-                          <div className="flex gap-2 mt-2">
-                            <Button
-                              size="sm"
-                              variant={clause.partyAPreference === 'accepted' ? 'default' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'accepted')}
-                              disabled={isUpdatingClause === clause._id || !isPartyA}
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={clause.partyAPreference === 'rejected' ? 'destructive' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'rejected')}
-                              disabled={isUpdatingClause === clause._id || !isPartyA}
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={clause.partyAPreference === 'modify' ? 'secondary' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'modify')}
-                              disabled={isUpdatingClause === clause._id || !isPartyA}
-                            >
-                              <Edit className="w-4 h-4 mr-1" />
-                              Modify
-                            </Button>
-                          </div>
-                        </div>
+              {agreement.clauses.map((clause: any, index) => {
+  console.log("Clause:", index, clause); // ✅ now works correctly
 
-                        <div>
-                          <Label className="text-sm font-medium">
-                            Party B {isPartyB ? '(You)' : ''}
-                          </Label>
-                          <div className="flex gap-2 mt-2">
-                            <Button
-                              size="sm"
-                              variant={clause.partyBPreference === 'accepted' ? 'default' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'accepted')}
-                              disabled={isUpdatingClause === clause._id || !isPartyB}
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={clause.partyBPreference === 'rejected' ? 'destructive' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'rejected')}
-                              disabled={isUpdatingClause === clause._id || !isPartyB}
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={clause.partyBPreference === 'modify' ? 'secondary' : 'outline'}
-                              onClick={() => handleClauseUpdate(clause._id, 'modify')}
-                              disabled={isUpdatingClause === clause._id || !isPartyB}
-                            >
-                              <Edit className="w-4 h-4 mr-1" />
-                              Modify
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+  return (
+    <Card key={clause._id} className="hover:shadow-md transition-shadow">
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <CardTitle className="text-lg font-semibold text-gray-900">
+                {clause.clauseId?.name || clause.name || 'Clause'}
+              </CardTitle>
+              <Badge variant={clause.clauseId?.required ? "destructive" : "secondary"}>
+                {clause.clauseId?.required ? "Required" : "Optional"}
+              </Badge>
+            </div>
+            <CardDescription className="mt-2 text-sm">
+              {clause.clauseId?.description || clause.description || 'No description available'}
+            </CardDescription>
+            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+              <span>Category: {clause.clauseId?.category || clause.category || 'General'}</span>
+              <span>Status: {clause.clauseId?.status || clause.status || "Pending"}</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Badge variant="outline">{clause.clauseId?.category || clause.category || 'General'}</Badge>
+            {clause.partyAPreference && clause.partyBPreference ? (
+              (clause.partyAPreference === 'acceptable' && clause.partyBPreference === 'acceptable') ? (
+                <Badge className="bg-green-100 text-green-800 border border-green-300 font-semibold">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  BOTH AGREED
+                </Badge>
+              ) : (clause.partyAPreference === 'unacceptable' || clause.partyBPreference === 'unacceptable') ? (
+                <Badge className="bg-red-100 text-red-800 border border-red-300 font-semibold">
+                  <XCircle className="w-3 h-3 mr-1" />
+                  REJECTED
+                </Badge>
+              ) : (
+                <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 font-semibold">
+                  <Clock className="w-3 h-3 mr-1" />
+                  IN DISCUSSION
+                </Badge>
+              )
+            ) : (
+              <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 font-semibold">
+                <Clock className="w-3 h-3 mr-1" />
+                PENDING
+              </Badge>
+            )}
+          </div>
+        </div>
+      </CardHeader>
 
-                      {/* AI Suggestions */}
-                      {aiSuggestions[clause._id] && (
-                        <Alert>
-                          <Lightbulb className="w-4 h-4" />
-                          <AlertDescription>
-                            <strong>AI Suggestion:</strong> {aiSuggestions[clause._id]}
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+      <CardContent>
+        <div className="space-y-4">
+          {/* Party Preferences */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-2">
+                Party A {isPartyA ? "(You)" : ""}
+                {clause.partyAPreference ? (
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                    clause.partyAPreference === 'acceptable' ? 'bg-green-100 text-green-800 border border-green-200' :
+                    clause.partyAPreference === 'unacceptable' ? 'bg-red-100 text-red-800 border border-red-200' :
+                    'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                  }`}>
+                    {clause.partyAPreference === 'acceptable' ? '✓ ACCEPTED' :
+                     clause.partyAPreference === 'unacceptable' ? '✗ REJECTED' :
+                     'No Decision'}
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                    No Decision
+                  </span>
+                )}
+              </Label>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  size="sm"
+                  variant={
+                    clause.partyAPreference === "acceptable" ? "default" : "outline"
+                  }
+                  className={clause.partyAPreference === "acceptable" ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
+                  onClick={() => handleClauseUpdate(clause.clauseId._id, "acceptable")}
+                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyA}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {clause.partyAPreference === "acceptable" ? '✓ Accepted' : 'Accept'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={
+                    clause.partyAPreference === "unacceptable"
+                      ? "destructive"
+                      : "outline"
+                  }
+                  className={clause.partyAPreference === "unacceptable" ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
+                  onClick={() => handleClauseUpdate(clause.clauseId._id, "unacceptable")}
+                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyA}
+                >
+                  <XCircle className="w-4 h-4 mr-1" />
+                  {clause.partyAPreference === "unacceptable" ? '✗ Rejected' : 'Reject'}
+                </Button>
+                {/* Modify button commented out - not needed */}
+                {/* <Button
+                  size="sm"
+                  variant={
+                    clause.partyAPreference === "modify"
+                      ? "secondary"
+                      : "outline"
+                  }
+                  onClick={() => handleClauseUpdate(clause.clauseId._id, "modify")}
+                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyA}
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  Modify
+                </Button> */}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-2">
+                Party B {isPartyB ? "(You)" : ""}
+                {clause.partyBPreference ? (
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                    clause.partyBPreference === 'acceptable' ? 'bg-green-100 text-green-800 border border-green-200' :
+                    clause.partyBPreference === 'unacceptable' ? 'bg-red-100 text-red-800 border border-red-200' :
+                    'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                  }`}>
+                    {clause.partyBPreference === 'acceptable' ? '✓ ACCEPTED' :
+                     clause.partyBPreference === 'unacceptable' ? '✗ REJECTED' :
+                     'No Decision'}
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                    No Decision
+                  </span>
+                )}
+              </Label>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  size="sm"
+                  variant={
+                    clause.partyBPreference === "acceptable" ? "default" : "outline"
+                  }
+                  className={clause.partyBPreference === "acceptable" ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
+                  onClick={() => handleClauseUpdate(clause.clauseId._id, "acceptable")}
+                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyB}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {clause.partyBPreference === "acceptable" ? '✓ Accepted' : 'Accept'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={
+                    clause.partyBPreference === "unacceptable"
+                      ? "destructive"
+                      : "outline"
+                  }
+                  className={clause.partyBPreference === "unacceptable" ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
+                  onClick={() => handleClauseUpdate(clause.clauseId._id, "unacceptable")}
+                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyB}
+                >
+                  <XCircle className="w-4 h-4 mr-1" />
+                  {clause.partyBPreference === "unacceptable" ? '✗ Rejected' : 'Reject'}
+                </Button>
+                {/* Modify button commented out - not needed */}
+                {/* <Button
+                  size="sm"
+                  variant={
+                    clause.partyBPreference === "modify"
+                      ? "secondary"
+                      : "outline"
+                  }
+                  onClick={() => handleClauseUpdate(clause.clauseId._id, "modify")}
+                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyB}
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  Modify
+                </Button> */}
+              </div>
+            </div>
+          </div>
+
+          {/* AI Suggestions */}
+          {aiSuggestions[clause._id] && (
+            <Alert>
+              <Lightbulb className="w-4 h-4" />
+              <AlertDescription>
+                <strong>AI Suggestion:</strong> {aiSuggestions[clause._id]}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+})}
+
             </div>
 
             {/* Sign Agreement */}
@@ -840,7 +948,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                       </p>
                       <Button
                         onClick={handleSignAgreement}
-                        disabled={isPartyA && agreement.partyASignature || isPartyB && agreement.partyBSignature}
+                        disabled={Boolean(isPartyA && agreement.partyASignature) || Boolean(isPartyB && agreement.partyBSignature)}
                         className="bg-green-600 hover:bg-green-700"
                       >
                         <PenTool className="w-4 h-4 mr-2" />
