@@ -57,14 +57,16 @@ interface AgreementCardProps {
   agreement: Agreement
   onStatusUpdate: (agreementId: string, newStatus: string) => Promise<void>
   onDownloadPDF: (agreementId: string) => Promise<void>
+  onDownloadDOC: (agreementId: string) => Promise<void>
   actionLoading: string | null
 }
 
 export function AgreementCard({ 
   agreement, 
   onStatusUpdate, 
-  onDownloadPDF, 
-  actionLoading 
+  onDownloadPDF,
+  onDownloadDOC,
+  actionLoading
 }: AgreementCardProps) {
   const router = useRouter()
   const { user } = useAuth()
@@ -98,11 +100,19 @@ export function AgreementCard({
   }
 
   const canSendInvite = !agreement.partyBUserId
-  const canView = agreement.status !== 'signed' // Can view until agreement is signed
-  const canDownloadPDF = agreement.status === 'signed' && 
-                       agreement.partyASignature && 
-                       agreement.partyBSignature
-  const canDelete = agreement.status !== 'signed' // Can't delete signed agreements
+  const canView = true // Always allow viewing agreements
+  
+  // Show download options when agreement is signed (both parties accepted all clauses)
+  const agreementIsSigned = agreement.status === 'signed'
+  
+  // For better signature handling, check if both parties have actually signed
+  const bothPartiesSigned = agreementIsSigned && 
+                           agreement.partyASignature && 
+                           agreement.partyBSignature
+  
+  const canDownloadPDF = bothPartiesSigned
+  const canDownloadDOC = bothPartiesSigned
+  const canDelete = agreementIsSigned // Allow deletion after agreement is signed
   const isPartyA = agreement.userid?._id === user?.id // Only Party A can delete
 
   // Handle delete agreement
@@ -257,22 +267,38 @@ export function AgreementCard({
             )}
 
 
-            {/* Download PDF Button */}
+            {/* Download Buttons - Only show when both parties have signed */}
             {canDownloadPDF && (
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="w-full"
-                onClick={() => onDownloadPDF(agreement._id)}
-                disabled={actionLoading === agreement._id}
-              >
-                {actionLoading === agreement._id ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4 mr-2" />
-                )}
-                Download PDF
-              </Button>
+              <div className="space-y-2">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => onDownloadPDF(agreement._id)}
+                  disabled={actionLoading === agreement._id}
+                >
+                  {actionLoading === agreement._id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  Download PDF
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => onDownloadDOC(agreement._id)}
+                  disabled={actionLoading === agreement._id}
+                >
+                  {actionLoading === agreement._id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  Download DOC
+                </Button>
+              </div>
             )}
 
             {/* Delete Button - Only Party A can delete */}
@@ -294,9 +320,12 @@ export function AgreementCard({
             )}
 
             {/* Status Message */}
-            {!canDownloadPDF && agreement.status !== 'signed' && (
+            {!bothPartiesSigned && (
               <div className="text-xs text-muted-foreground text-center p-2 bg-muted rounded">
-                PDF available after both parties sign
+                {agreementIsSigned 
+                  ? 'Download options available after both parties sign the agreement'
+                  : 'Download and delete options available after both parties accept all clauses and sign'
+                }
               </div>
             )}
           </div>

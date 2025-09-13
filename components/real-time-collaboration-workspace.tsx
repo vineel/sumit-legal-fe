@@ -30,10 +30,12 @@ import {
   ChevronRight,
   ChevronLeft,
   User,
-  Bot
+  Bot,
+  Upload,
+  X
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF } from "@/lib/agreements"
+import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF, downloadAgreementDOC } from "@/lib/agreements"
 import { useAuth } from "@/components/auth-provider"
 
 interface RealTimeCollaborationWorkspaceProps {
@@ -127,6 +129,10 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   const [showAddClause, setShowAddClause] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState<string[]>([])
   const [aiSuggestions, setAiSuggestions] = useState<{[key: string]: string}>({})
+  const [showSignatureModal, setShowSignatureModal] = useState(false)
+  const [signatureFile, setSignatureFile] = useState<File | null>(null)
+  const [uploadingSignature, setUploadingSignature] = useState(false)
+  const [userSignature, setUserSignature] = useState<string | null>(null)
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -357,6 +363,13 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     }
   }, [chatMessages])
 
+  // Load user's existing signature
+  useEffect(() => {
+    if (user?.signature?.url) {
+      setUserSignature(user.signature.url)
+    }
+  }, [user])
+
   // Get user ID from multiple sources as fallback
   const storedUser = localStorage.getItem('user')
   const parsedUser = storedUser ? JSON.parse(storedUser) : null
@@ -368,13 +381,6 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   const isPartyB = agreement?.partyBUserId?._id?.toString() === userIdStr
   const isAuthorized = isPartyA || isPartyB
   
-  // Debug logging
-  console.log('Debug - User ID:', userIdStr)
-  console.log('Debug - Party A ID:', agreement?.userid?._id?.toString())
-  console.log('Debug - Party B ID:', agreement?.partyBUserId?._id?.toString())
-  console.log('Debug - isPartyA:', isPartyA)
-  console.log('Debug - isPartyB:', isPartyB)
-  console.log('Debug - isAuthorized:', isAuthorized)
   
   // If user is not loaded yet, show loading state
   if (!user && !parsedUser) {
@@ -453,13 +459,41 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       })
 
       // Update local state immediately
+      let updatedAgreement
       if (response && response.agreement) {
-        setAgreement(response.agreement)
+        updatedAgreement = response.agreement
+        setAgreement(updatedAgreement)
       } else {
         // Fallback: refresh agreement data if response doesn't contain updated agreement
-        const updatedAgreement = await getAgreementById(token, agreementId)
+        updatedAgreement = await getAgreementById(token, agreementId)
         if (updatedAgreement) {
           setAgreement(updatedAgreement)
+        }
+      }
+
+      // Check if all clauses are accepted by both parties and update status to 'signed'
+      if (updatedAgreement && updatedAgreement.clauses) {
+        const allClausesAccepted = updatedAgreement.clauses.every((clause: any) => 
+          clause.partyAPreference === 'acceptable' && clause.partyBPreference === 'acceptable'
+        )
+        
+        if (allClausesAccepted && updatedAgreement.status !== 'signed') {
+          try {
+            await updateAgreementStatus(token, agreementId, 'signed')
+            // Refresh agreement to get updated status
+            const signedAgreement = await getAgreementById(token, agreementId)
+            if (signedAgreement) {
+              setAgreement(signedAgreement)
+            }
+            
+            toast({
+              title: "Agreement Signed!",
+              description: "All clauses have been accepted by both parties. The agreement is now signed and ready for download.",
+              variant: "default"
+            })
+          } catch (statusError) {
+            console.error("Error updating agreement status:", statusError)
+          }
         }
       }
 
@@ -594,6 +628,87 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     }
   }
 
+  // Handle signature upload
+  const handleSignatureUpload = async () => {
+    if (!signatureFile) return
+
+    try {
+      setUploadingSignature(true)
+      const token = localStorage.getItem("auth_token")
+      if (!token) return
+
+      const formData = new FormData()
+      formData.append('signature', signatureFile)
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/user/upload-signature`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to upload signature')
+      }
+
+      const result = await response.json()
+      
+      // Handle both possible response structures
+      const signatureUrl = result.signatureUrl || result.signature?.url
+      if (!signatureUrl) {
+        throw new Error('No signature URL received from server')
+      }
+      
+      setUserSignature(signatureUrl)
+      setShowSignatureModal(false)
+      setSignatureFile(null)
+
+      toast({
+        title: "Signature Uploaded",
+        description: "Your signature has been saved successfully",
+        variant: "default"
+      })
+    } catch (err: any) {
+      console.error("Error uploading signature:", err)
+      toast({
+        title: "Upload Failed",
+        description: err.message || "Failed to upload signature",
+        variant: "destructive"
+      })
+    } finally {
+      setUploadingSignature(false)
+    }
+  }
+
+  // Handle file selection for signature
+  const handleSignatureFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
+        toast({
+          title: "Invalid File Type",
+          description: "Please select a JPEG or PNG image file",
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive"
+        })
+        return
+      }
+
+      setSignatureFile(file)
+    }
+  }
+
   // Handle agreement signing
   const handleSignAgreement = async () => {
     if (!socket || !isAuthorized) return
@@ -602,12 +717,22 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
+      // Check if user has a signature
+      if (!userSignature) {
+        toast({
+          title: "Signature Required",
+          description: "Please upload your signature before signing the agreement",
+          variant: "destructive"
+        })
+        return
+      }
+
       await updateAgreementStatus(token, agreementId, 'signed')
 
       // Emit real-time signature
       socket.emit('agreement-signed', {
         agreementId,
-        [isPartyA ? 'partyASignature' : 'partyBSignature']: new Date().toISOString()
+        [isPartyA ? 'partyASignature' : 'partyBSignature']: userSignature
       })
 
       toast({
@@ -643,7 +768,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
         body: JSON.stringify({
           agreementId,
           name: customClauseName.trim(),
-          description: customClauseText.trim(),
+        description: customClauseText.trim(),
           category: "Custom"
         })
       })
@@ -698,6 +823,28 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       toast({
         title: "Error",
         description: err.message || "Failed to download PDF",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Handle DOC download
+  const handleDownloadDOC = async () => {
+    try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) return
+
+      await downloadAgreementDOC(token, agreementId)
+      toast({
+        title: "DOC Downloaded",
+        description: "The agreement DOC has been downloaded",
+        variant: "default"
+      })
+    } catch (err: any) {
+      console.error("Error downloading DOC:", err)
+      toast({
+        title: "Error",
+        description: err.message || "Failed to download DOC",
         variant: "destructive"
       })
     }
@@ -800,8 +947,9 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
               )}
             </Button>
 
-            {/* Download PDF */}
+            {/* Download Buttons */}
             {agreement.status === 'signed' && (
+              <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -810,6 +958,15 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadDOC}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download DOC
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -856,7 +1013,24 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
             {/* Clauses */}
             <div className="space-y-6">
               <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
                 <h2 className="text-xl font-semibold">Agreement Clauses</h2>
+                  <Badge variant="outline" className="text-sm">
+                    {agreement.clauses?.length || 0} clauses
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const clausesSection = document.getElementById('clauses-section');
+                      clausesSection?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Clauses
+                  </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -865,6 +1039,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   <Plus className="w-4 h-4 mr-2" />
                   Add Custom Clause
                 </Button>
+                </div>
               </div>
 
               {/* Add Custom Clause */}
@@ -884,14 +1059,14 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                       </div>
                       <div>
                         <Label htmlFor="custom-clause">Clause Description</Label>
-                        <Textarea
-                          id="custom-clause"
+                      <Textarea
+                        id="custom-clause"
                           placeholder="Enter your custom clause description..."
-                          value={customClauseText}
-                          onChange={(e) => setCustomClauseText(e.target.value)}
-                          rows={3}
+                        value={customClauseText}
+                        onChange={(e) => setCustomClauseText(e.target.value)}
+                        rows={3}
                           className="mt-1"
-                        />
+                      />
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -915,7 +1090,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
               )}
 
               {/* Clauses List */}
-              {agreement.clauses.map((clause: any, index) => {
+              <div id="clauses-section">
+                {agreement.clauses.map((clause: any, index) => {
   console.log("Clause:", index, clause); // ✅ now works correctly
 
   return (
@@ -1113,26 +1289,74 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     </Card>
   );
 })}
+              </div>
 
             </div>
 
-            {/* Sign Agreement */}
-            {agreement.status === 'accepted' && (
+            {/* Sign Agreement - Always show for testing */}
+            {true && (
               <div className="mt-8">
                 <Card className="border-green-200 bg-green-50">
                   <CardContent className="pt-6">
                     <div className="text-center">
                       <h3 className="text-lg font-semibold mb-2">Ready to Sign?</h3>
-                      <p className="text-gray-600 mb-4">
+                      <p className="text-gray-600 mb-2">
                         Both parties have accepted the agreement. You can now sign it.
                       </p>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Debug: Agreement Status = {agreement.status}
+                      </p>
+                      
+                      {/* Signature Section */}
+                      <div className="mb-6 p-4 bg-white rounded-lg border">
+                        <h4 className="font-medium mb-3">Your Signature</h4>
+                        
+                        {userSignature ? (
+                          <div className="space-y-3">
+                            <div className="flex justify-center">
+                              <img 
+                                src={userSignature} 
+                                alt="Your signature" 
+                                className="max-h-20 border rounded"
+                              />
+                            </div>
+                            <p className="text-sm text-green-600">✓ Signature ready</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowSignatureModal(true)}
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              Change Signature
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-sm text-gray-600">No signature uploaded yet</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowSignatureModal(true)}
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Signature
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Sign Agreement Button */}
                       <Button
                         onClick={handleSignAgreement}
-                        disabled={Boolean(isPartyA && agreement.partyASignature) || Boolean(isPartyB && agreement.partyBSignature)}
+                        disabled={
+                          Boolean(isPartyA && agreement.partyASignature) || 
+                          Boolean(isPartyB && agreement.partyBSignature) ||
+                          !userSignature
+                        }
                         className="bg-green-600 hover:bg-green-700"
                       >
                         <PenTool className="w-4 h-4 mr-2" />
-                        Sign Agreement
+                        {!userSignature ? 'Upload Signature First' : 'Sign Agreement'}
                       </Button>
                     </div>
                   </CardContent>
@@ -1207,15 +1431,15 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 
                 
                 return (
-                  <div
-                    key={message._id}
+                <div
+                  key={message._id}
                     className={`w-full flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3`}
                   >
                     <div 
                       className={`max-w-xs px-4 py-3 rounded-2xl ${
                         isOwnMessage
                           ? 'bg-blue-500 text-white rounded-br-md'
-                          : message.senderRole === 'system'
+                      : message.senderRole === 'system'
                           ? 'bg-gray-200 text-gray-800 rounded-bl-md'
                           : isPartyA
                           ? 'bg-gray-100 text-gray-800 rounded-bl-md'
@@ -1224,15 +1448,15 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                     >
                       {!isOwnMessage && (
                         <div className="flex items-center gap-2 mb-2">
-                          {message.isAI ? (
-                            <Bot className="w-3 h-3" />
-                          ) : (
-                            <User className="w-3 h-3" />
-                          )}
+                      {message.isAI ? (
+                        <Bot className="w-3 h-3" />
+                      ) : (
+                        <User className="w-3 h-3" />
+                      )}
                           <span className="text-xs font-semibold">
                             {getSenderName()}
-                          </span>
-                        </div>
+                      </span>
+                    </div>
                       )}
                       <p className="text-sm leading-relaxed">{message.message}</p>
                       <div className="flex items-center justify-between mt-2">
@@ -1246,9 +1470,9 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                             ) : (
                               <CheckCircle className="w-3 h-3 text-green-300" />
                             )}
-                          </div>
+                  </div>
                         )}
-                      </div>
+                </div>
                     </div>
                   </div>
                 )
@@ -1313,6 +1537,86 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
           </div>
         </div>
       </div>
+
+      {/* Signature Upload Modal */}
+      {showSignatureModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Upload Signature</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowSignatureModal(false)
+                  setSignatureFile(null)
+                }}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="signature-upload">Select Signature Image</Label>
+                <Input
+                  id="signature-upload"
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png"
+                  onChange={handleSignatureFileChange}
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Only JPEG and PNG files allowed. Max size: 5MB
+                </p>
+              </div>
+
+              {signatureFile && (
+                <div className="space-y-2">
+                  <Label>Preview:</Label>
+                  <div className="border rounded p-2">
+                    <img 
+                      src={URL.createObjectURL(signatureFile)} 
+                      alt="Signature preview" 
+                      className="max-h-32 mx-auto"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={handleSignatureUpload}
+                  disabled={!signatureFile || uploadingSignature}
+                  className="flex-1"
+                >
+                  {uploadingSignature ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Signature
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowSignatureModal(false)
+                    setSignatureFile(null)
+                  }}
+                  disabled={uploadingSignature}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
