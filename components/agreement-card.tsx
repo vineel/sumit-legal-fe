@@ -59,7 +59,6 @@ interface AgreementCardProps {
   agreement: Agreement
   onStatusUpdate: (agreementId: string, newStatus: string) => Promise<void>
   onDownloadPDF: (agreementId: string) => Promise<void>
-  onDownloadDOC: (agreementId: string) => Promise<void>
   actionLoading: string | null
 }
 
@@ -67,7 +66,6 @@ export function AgreementCard({
   agreement, 
   onStatusUpdate, 
   onDownloadPDF,
-  onDownloadDOC,
   actionLoading
 }: AgreementCardProps) {
   const router = useRouter()
@@ -286,20 +284,7 @@ export function AgreementCard({
                   )}
                   Download PDF
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full"
-                  onClick={() => onDownloadDOC(agreement._id)}
-                  disabled={actionLoading === agreement._id}
-                >
-                  {actionLoading === agreement._id ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4 mr-2" />
-                  )}
-                  Download DOC
-                </Button>
+                {/*  */}
               </div>
             )}
 

@@ -169,39 +169,6 @@ export async function downloadAgreementPDF(
   }
 }
 
-// --- Download Agreement DOC ---
-export async function downloadAgreementDOC(
-  token: string,
-  agreementId: string
-): Promise<void> {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/download-doc`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to download DOC');
-    }
-
-    // Create blob and download
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `agreement-${agreementId}.docx`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  } catch (error: any) {
-    console.error('Error downloading DOC:', error);
-    throw error;
-  }
-}
 
 // --- Delete Agreement ---
 export async function deleteAgreement(
@@ -294,5 +261,34 @@ export async function sendInvite(
     console.error("Error status:", error.response?.status)
     console.error("Error message:", error.message)
     throw error
+  }
+}
+
+// --- Get AI Clause Suggestions ---
+export async function getAIClauseSuggestions(token: string, agreementId: string): Promise<{
+  success: boolean;
+  suggestions: string;
+  agreementInfo: {
+    templateName: string;
+    templateDescription: string;
+    partyA: string;
+    partyB: string;
+    totalClauses: number;
+  };
+  clauseSummary: Array<{
+    name: string;
+    status: string;
+    partyAPreference: string;
+    partyBPreference: string;
+  }>;
+}> {
+  try {
+    const response = await api.get(`/admin/agreement/${agreementId}/clause-suggestions`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error getting AI clause suggestions:', error);
+    throw error;
   }
 }

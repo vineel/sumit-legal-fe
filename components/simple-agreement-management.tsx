@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AgreementCard } from "./agreement-card"
-import { downloadAgreementPDF, downloadAgreementDOC } from "@/lib/agreements"
+import { downloadAgreementPDF } from "@/lib/agreements"
 
 interface Agreement {
   _id: string
@@ -217,38 +217,6 @@ export function SimpleAgreementManagement({ userRole }: SimpleAgreementManagemen
     }
   }
 
-  const handleDownloadDOC = async (agreementId: string) => {
-    try {
-      setActionLoading(agreementId)
-      
-      const token = localStorage.getItem("auth_token")
-      if (!token) {
-        toast({
-          title: "Error",
-          description: "No authentication token found",
-          variant: "destructive"
-        })
-        return
-      }
-
-      await downloadAgreementDOC(token, agreementId)
-
-      toast({
-        title: "Download Started",
-        description: "Agreement DOC is being downloaded",
-        variant: "default"
-      })
-    } catch (err: any) {
-      console.error("Error downloading DOC:", err)
-      toast({
-        title: "Download Failed",
-        description: err.message || "Failed to download DOC",
-        variant: "destructive"
-      })
-    } finally {
-      setActionLoading(null)
-    }
-  }
 
   if (loading) {
     return (
@@ -334,7 +302,6 @@ export function SimpleAgreementManagement({ userRole }: SimpleAgreementManagemen
             agreement={agreement}
             onStatusUpdate={handleStatusUpdate}
             onDownloadPDF={handleDownloadPDF}
-            onDownloadDOC={handleDownloadDOC}
             actionLoading={actionLoading}
           />
         ))}

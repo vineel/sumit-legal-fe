@@ -1,121 +1,119 @@
-import api from "./api";
-import { Clause } from "./clause";
-import { Agreement } from "./agreements";
+import api from './api';
 
-export interface UpdateUserPayload {
+export interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  photo?: {
+    url: string;
+  };
+  signature?: {
+    url: string;
+  };
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateUserData {
   name?: string;
-  status?: string;
   street?: string;
   city?: string;
   state?: string;
   postalCode?: string;
   country?: string;
-  photo?: File;
-  signature?: File;
-  file?: File;
 }
 
-
-// Agreement interface moved to agreements.ts to avoid duplication
-
-
-export interface Template {
-  _id: string;
-  userid: string;
-  templatename: string;
-  description?: string;
-  clauses?: string[] | Clause[]; // Can be IDs or populated clause objects
-  isCustom?: boolean;
-  active: boolean;
-  version: string;
-  createdby: string;
-  templatefile: string; // URL to S3 file
-  createdAt: string;
-  updatedAt: string;
-}
-// ✅ Update user profile (with optional files)
-export async function updateUser(payload: UpdateUserPayload): Promise<{ message: string; user: any }> {
-  const formData = new FormData();
-
-  // Text fields
-  if (payload.name) formData.append("name", payload.name);
-  if (payload.status) formData.append("status", payload.status);
-
-  if (payload.street) formData.append("street", payload.street);
-  if (payload.city) formData.append("city", payload.city);
-  if (payload.state) formData.append("state", payload.state);
-  if (payload.postalCode) formData.append("postalCode", payload.postalCode);
-  if (payload.country) formData.append("country", payload.country);
-
-  // Files
-  if (payload.photo) formData.append("photo", payload.photo);
-  if (payload.signature) formData.append("signature", payload.signature);
-  if (payload.file) formData.append("file", payload.file);
-
-  const { data } = await api.put("/user/update", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-
-  return data;
-}
-
-
-export async function getAgreements(token: string): Promise<Agreement[]> {
-  const response = await api.get("/user/agreements", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  return response.data;
-}
-
- export async function getAgreementById(token: string, id: string): Promise<Agreement> {
+// Get user profile
+export async function getUserProfile(token: string): Promise<{ user: User }> {
   try {
-    const response = await api.get(`/agreement/agreementbyid/${id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const response = await api.get('/user/profile', {
+      headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
-  } catch (error) {
-    console.error(`Error fetching agreement ${id}:`, error);
-    throw new Error("Failed to fetch agreement by ID.");
+  } catch (error: any) {
+    console.error('Error fetching user profile:', error);
+    throw new Error(error.response?.data?.message || 'Failed to fetch user profile');
   }
 }
 
-
-
-// ✅ Get all templates for logged-in user
-export async function getTemplates(token: string): Promise<Template[]> {
+// Update user profile
+export async function updateUserProfile(
+  token: string,
+  userData: UpdateUserData
+): Promise<{ message: string; user: User }> {
   try {
-    const response = await api.get("/user/templates", {
-      headers: {
+    const formData = new FormData();
+    
+    // Add text fields to form data
+    if (userData.name) formData.append('name', userData.name);
+    if (userData.street) formData.append('street', userData.street);
+    if (userData.city) formData.append('city', userData.city);
+    if (userData.state) formData.append('state', userData.state);
+    if (userData.postalCode) formData.append('postalCode', userData.postalCode);
+    if (userData.country) formData.append('country', userData.country);
+
+    const response = await api.put('/user/update', formData, {
+      headers: { 
         Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
       },
     });
     return response.data;
-  } catch (error) {
-    console.error("Error fetching templates:", error);
-    throw new Error("Failed to fetch templates.");
+  } catch (error: any) {
+    console.error('Error updating user profile:', error);
+    throw new Error(error.response?.data?.message || 'Failed to update user profile');
   }
 }
 
-
-export async function getTemplateById(token: string, id: string): Promise<Template> {
+// Upload signature
+export async function uploadSignature(
+  token: string,
+  signatureFile: File
+): Promise<{ message: string; signatureUrl: string; user: User }> {
   try {
-    const response = await api.get(`/api/admin/template/single/${id}`, {
-      headers: {
+    const formData = new FormData();
+    formData.append('signature', signatureFile);
+
+    const response = await api.post('/user/upload-signature', formData, {
+      headers: { 
         Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
       },
     });
     return response.data;
-  } catch (error) {
-    console.error("Error fetching template by ID:", error);
-    throw new Error("Failed to fetch template.");
+  } catch (error: any) {
+    console.error('Error uploading signature:', error);
+    throw new Error(error.response?.data?.message || 'Failed to upload signature');
   }
 }
 
- 
- 
+// Upload profile photo
+export async function uploadProfilePhoto(
+  token: string,
+  photoFile: File
+): Promise<{ message: string; user: User }> {
+  try {
+    const formData = new FormData();
+    formData.append('photo', photoFile);
+
+    const response = await api.put('/user/update', formData, {
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error uploading profile photo:', error);
+    throw new Error(error.response?.data?.message || 'Failed to upload profile photo');
+  }
+}

@@ -21,7 +21,6 @@ import {
   Send,
   Loader2,
   AlertCircle,
-  Lightbulb,
   PenTool,
   Eye,
   EyeOff,
@@ -35,7 +34,7 @@ import {
   X
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF, downloadAgreementDOC } from "@/lib/agreements"
+import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF, getAIClauseSuggestions } from "@/lib/agreements"
 import { useAuth } from "@/components/auth-provider"
 
 interface RealTimeCollaborationWorkspaceProps {
@@ -130,7 +129,9 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   const [customClauseName, setCustomClauseName] = useState("")
   const [showAddClause, setShowAddClause] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState<string[]>([])
-  const [aiSuggestions, setAiSuggestions] = useState<{[key: string]: string}>({})
+  const [aiSuggestions, setAiSuggestions] = useState<string | null>(null)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [signatureFile, setSignatureFile] = useState<File | null>(null)
   const [uploadingSignature, setUploadingSignature] = useState(false)
@@ -822,6 +823,34 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     }
   }
 
+  // Handle AI suggestions
+  const handleGetAISuggestions = async () => {
+    try {
+      setLoadingSuggestions(true)
+      const token = localStorage.getItem("auth_token")
+      if (!token) return
+
+      const result = await getAIClauseSuggestions(token, agreementId)
+      setAiSuggestions(result.suggestions)
+      setShowSuggestions(true)
+
+      toast({
+        title: "AI Suggestions Generated",
+        description: "AI has analyzed your agreement and provided suggestions",
+        variant: "default"
+      })
+    } catch (err: any) {
+      console.error("Error getting AI suggestions:", err)
+      toast({
+        title: "Error",
+        description: err.message || "Failed to get AI suggestions",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingSuggestions(false)
+    }
+  }
+
   // Handle PDF download
   const handleDownloadPDF = async () => {
     try {
@@ -844,27 +873,6 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     }
   }
 
-  // Handle DOC download
-  const handleDownloadDOC = async () => {
-    try {
-      const token = localStorage.getItem("auth_token")
-      if (!token) return
-
-      await downloadAgreementDOC(token, agreementId)
-      toast({
-        title: "DOC Downloaded",
-        description: "The agreement DOC has been downloaded",
-        variant: "default"
-      })
-    } catch (err: any) {
-      console.error("Error downloading DOC:", err)
-      toast({
-        title: "Error",
-        description: err.message || "Failed to download DOC",
-        variant: "destructive"
-      })
-    }
-  }
 
   if (loading) {
     return (
@@ -974,14 +982,6 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownloadDOC}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download DOC
-                </Button>
               </div>
             )}
           </div>
@@ -1039,13 +1039,11 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const clausesSection = document.getElementById('clauses-section');
-                      clausesSection?.scrollIntoView({ behavior: 'smooth' });
-                    }}
+                    onClick={handleGetAISuggestions}
+                    disabled={loadingSuggestions}
                   >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Clauses
+                    <Bot className="w-4 h-4 mr-2" />
+                    {loadingSuggestions ? 'Analyzing...' : 'AI Suggestions'}
                   </Button>
                 <Button
                   variant="outline"
@@ -1291,21 +1289,43 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
             </div>
           </div>
 
-          {/* AI Suggestions */}
-          {aiSuggestions[clause._id] && (
-            <Alert>
-              <Lightbulb className="w-4 h-4" />
-              <AlertDescription>
-                <strong>AI Suggestion:</strong> {aiSuggestions[clause._id]}
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
       </CardContent>
     </Card>
   );
 })}
               </div>
+
+              {/* AI Suggestions Display */}
+              {showSuggestions && aiSuggestions && (
+                <Card className="mt-6 border-purple-200 bg-purple-50">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Bot className="w-5 h-5 text-purple-600" />
+                        AI Suggestions
+                      </CardTitle>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSuggestions(false)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <CardDescription>
+                      AI has analyzed your agreement and provided suggestions to benefit both parties
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose max-w-none">
+                      <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-white p-4 rounded-lg border">
+                        {aiSuggestions}
+                      </pre>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
             </div>
 
