@@ -78,7 +78,7 @@ interface Agreement {
     name: string
     email: string
   }
-  partyAEmail: string
+  partyAEmail?: string
   partyBEmail?: string
   status: string
   clauses: Clause[]
@@ -90,13 +90,15 @@ interface Agreement {
 
 interface ChatMessage {
   _id: string
-  agreementId: string
+  agreementId?: string
   senderId: string
   senderName: string
   senderRole: 'partyA' | 'partyB' | 'system'
   message: string
-  timestamp: string
+  timestamp?: string
+  createdAt?: string
   isAI?: boolean
+  isSending?: boolean
 }
 
 export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollaborationWorkspaceProps) {
@@ -115,8 +117,13 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   const [newMessage, setNewMessage] = useState("")
   const [sendingMessage, setSendingMessage] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [tempMessage, setTempMessage] = useState<ChatMessage | null>(null)
   const [isUpdatingClause, setIsUpdatingClause] = useState<string | null>(null)
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [isTyping, setIsTyping] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const [customClauseText, setCustomClauseText] = useState("")
+  const [customClauseName, setCustomClauseName] = useState("")
   const [showAddClause, setShowAddClause] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState<string[]>([])
   const [aiSuggestions, setAiSuggestions] = useState<{[key: string]: string}>({})
@@ -124,6 +131,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Initialize socket connection
   useEffect(() => {
@@ -139,7 +147,11 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       setIsConnected(true)
       
       // Join the agreement room
-      newSocket.emit('join-agreement', { agreementId, userId: user?.id })
+      newSocket.emit('join-agreement', { 
+        agreementId, 
+        userId: user?.id,
+        userName: user?.name || 'Unknown User'
+      })
     })
 
     newSocket.on('disconnect', () => {
@@ -170,6 +182,11 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     newSocket.on('message', (message: ChatMessage) => {
       console.log("New message received:", message)
       setChatMessages(prev => [...prev, message])
+      
+      // Increment unread count if chat is closed
+      if (!isChatOpen) {
+        setUnreadCount(prev => prev + 1)
+      }
     })
 
     newSocket.on('clause-updated', (data) => {
@@ -195,6 +212,24 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
         description: `Status changed to: ${data.status}`,
         variant: "default"
       })
+    })
+
+    // Typing indicators
+    newSocket.on('user-typing', (data) => {
+      if (String(data.userId) !== String(user?._id || user?.id)) {
+        setTypingUsers(prev => {
+          if (!prev.includes(data.userName)) {
+            return [...prev, data.userName]
+          }
+          return prev
+        })
+      }
+    })
+
+    newSocket.on('user-stopped-typing', (data) => {
+      if (String(data.userId) !== String(user?._id || user?.id)) {
+        setTypingUsers(prev => prev.filter(name => name !== data.userName))
+      }
     })
 
     newSocket.on('agreement-signed', (data) => {
@@ -227,9 +262,50 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     setSocket(newSocket)
 
     return () => {
+      // Stop typing before leaving
+      if (isTyping) {
+        newSocket.emit('typing-stop', { 
+          agreementId, 
+          userId: String(user?._id || user?.id || ''),
+          userName: user?.name || 'Unknown User'
+        })
+      }
+      
+      // Leave the agreement room before closing
+      newSocket.emit('leave-agreement', { 
+        agreementId, 
+        userId: user?.id,
+        userName: user?.name || 'Unknown User'
+      })
       newSocket.close()
     }
   }, [agreementId, user?.id, toast])
+
+  // Reset unread count when chat is opened
+  useEffect(() => {
+    if (isChatOpen) {
+      setUnreadCount(0)
+    }
+  }, [isChatOpen])
+
+  // Load chat messages when component mounts
+  useEffect(() => {
+    const loadChatMessages = async () => {
+      try {
+        const token = localStorage.getItem("auth_token")
+        if (!token) return
+
+        const messages = await getChatMessages(token, agreementId)
+        setChatMessages(messages)
+      } catch (error) {
+        console.error("Error loading chat messages:", error)
+      }
+    }
+
+    if (agreementId) {
+      loadChatMessages()
+    }
+  }, [agreementId])
 
   // Load agreement data
   useEffect(() => {
@@ -291,6 +367,14 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   const isPartyA = agreement?.userid?._id?.toString() === userIdStr
   const isPartyB = agreement?.partyBUserId?._id?.toString() === userIdStr
   const isAuthorized = isPartyA || isPartyB
+  
+  // Debug logging
+  console.log('Debug - User ID:', userIdStr)
+  console.log('Debug - Party A ID:', agreement?.userid?._id?.toString())
+  console.log('Debug - Party B ID:', agreement?.partyBUserId?._id?.toString())
+  console.log('Debug - isPartyA:', isPartyA)
+  console.log('Debug - isPartyB:', isPartyB)
+  console.log('Debug - isAuthorized:', isAuthorized)
   
   // If user is not loaded yet, show loading state
   if (!user && !parsedUser) {
@@ -405,32 +489,101 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     }
   }
 
+  // Handle typing indicator with debouncing
+  const handleTyping = () => {
+    if (!socket || !isAuthorized) return
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+    
+    // If not currently typing, start typing
+    if (!isTyping) {
+      setIsTyping(true)
+      socket.emit('typing-start', { 
+        agreementId, 
+        userId: String(user?._id || user?.id || ''), 
+        userName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown'))
+      })
+    }
+    
+    // Set new timeout to stop typing (debounced)
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false)
+      socket.emit('typing-stop', { 
+        agreementId, 
+        userId: String(user?._id || user?.id || ''),
+        userName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown'))
+      })
+    }, 1500) // 1.5 seconds after last keystroke
+  }
+
+  // Stop typing indicator
+  const stopTyping = () => {
+    if (isTyping && socket) {
+      setIsTyping(false)
+      socket.emit('typing-stop', { 
+        agreementId, 
+        userId: String(user?._id || user?.id || ''),
+        userName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown'))
+      })
+    }
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = undefined
+    }
+  }
+
   // Handle chat message
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !socket || !isAuthorized) return
 
+    // Stop typing when sending message
+    stopTyping()
+
+    const messageText = newMessage.trim()
+    const tempMsg: ChatMessage = {
+      _id: `temp-${Date.now()}`,
+      agreementId: agreementId,
+      message: messageText,
+      senderId: String(user?._id || user?.id || ''),
+      senderName: user?.name || (isPartyA ? (agreement?.userid?.name || 'You') : (agreement?.partyBUserId?.name || 'You')),
+      senderRole: isPartyA ? 'partyA' : 'partyB',
+      createdAt: new Date().toISOString(),
+      isSending: true
+    }
+
     try {
       setSendingMessage(true)
+      setTempMessage(tempMsg)
+      setNewMessage("")
+      
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
-      const messageData = await sendChatMessage(token, agreementId, {
-        message: newMessage.trim(),
-        senderRole: isPartyA ? 'partyA' : 'partyB'
-      })
+      const messageData = await sendChatMessage(
+        token, 
+        agreementId, 
+        messageText, 
+        isPartyA ? 'partyA' : 'partyB'
+      )
 
       // Emit real-time message
       socket.emit('send-message', {
         agreementId,
         message: messageData.message,
-        senderId: user?.id,
-        senderName: user?.name || 'Unknown',
+        senderId: String(user?._id || user?.id || ''),
+        senderName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown')),
         senderRole: isPartyA ? 'partyA' : 'partyB'
       })
 
-      setNewMessage("")
+      // Remove temp message
+      setTempMessage(null)
     } catch (err: any) {
       console.error("Error sending message:", err)
+      setTempMessage(null)
+      setNewMessage(messageText) // Restore message on error
       toast({
         title: "Error",
         description: err.message || "Failed to send message",
@@ -474,31 +627,45 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
 
   // Handle custom clause addition
   const handleAddCustomClause = async () => {
-    if (!customClauseText.trim() || !socket || !isAuthorized) return
+    if (!customClauseName.trim() || !customClauseText.trim() || !socket || !isAuthorized) return
 
     try {
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
-      const newClause = {
-        _id: `custom_${Date.now()}`,
-        name: "Custom Clause",
-        description: customClauseText.trim(),
-        category: "Custom",
-        required: false,
-        status: "pending",
-        partyAPreference: "pending",
-        partyBPreference: "pending"
-      }
-
-      // Emit real-time custom clause
-      socket.emit('custom-clause-added', {
-        agreementId,
-        clause: newClause
+      // Call backend API to add custom clause
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/custom-clause`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          agreementId,
+          name: customClauseName.trim(),
+          description: customClauseText.trim(),
+          category: "Custom"
+        })
       })
 
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to add custom clause')
+      }
+
+      const result = await response.json()
+      console.log("Custom clause added:", result)
+
       setCustomClauseText("")
+      setCustomClauseName("")
       setShowAddClause(false)
+      
+      // Refresh agreement data to get the new clause
+      if (agreement) {
+        const updatedAgreement = await getAgreementById(token, agreementId)
+        setAgreement(updatedAgreement)
+      }
+
       toast({
         title: "Custom Clause Added",
         description: "A new clause has been added to the agreement",
@@ -626,9 +793,9 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
             >
               <MessageSquare className="w-4 h-4 mr-2" />
               Chat
-              {chatMessages.length > 0 && (
+              {(isChatOpen ? chatMessages.length : unreadCount) > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {chatMessages.length}
+                  {isChatOpen ? chatMessages.length : unreadCount}
                 </span>
               )}
             </Button>
@@ -705,19 +872,32 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 <Card className="border-blue-200 bg-blue-50">
                   <CardContent className="pt-6">
                     <div className="space-y-4">
-                      <Label htmlFor="custom-clause">Custom Clause</Label>
-                      <Textarea
-                        id="custom-clause"
-                        placeholder="Enter your custom clause..."
-                        value={customClauseText}
-                        onChange={(e) => setCustomClauseText(e.target.value)}
-                        rows={3}
-                      />
+                      <div>
+                        <Label htmlFor="custom-clause-name">Clause Name</Label>
+                        <Input
+                          id="custom-clause-name"
+                          placeholder="Enter clause name..."
+                          value={customClauseName}
+                          onChange={(e) => setCustomClauseName(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="custom-clause">Clause Description</Label>
+                        <Textarea
+                          id="custom-clause"
+                          placeholder="Enter your custom clause description..."
+                          value={customClauseText}
+                          onChange={(e) => setCustomClauseText(e.target.value)}
+                          rows={3}
+                          className="mt-1"
+                        />
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
                           onClick={handleAddCustomClause}
-                          disabled={!customClauseText.trim()}
+                          disabled={!customClauseName.trim() || !customClauseText.trim()}
                         >
                           Add Clause
                         </Button>
@@ -818,8 +998,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                     clause.partyAPreference === "acceptable" ? "default" : "outline"
                   }
                   className={clause.partyAPreference === "acceptable" ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
-                  onClick={() => handleClauseUpdate(clause.clauseId._id, "acceptable")}
-                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyA}
+                  onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "acceptable")}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
                   {clause.partyAPreference === "acceptable" ? '✓ Accepted' : 'Accept'}
@@ -832,8 +1012,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                       : "outline"
                   }
                   className={clause.partyAPreference === "unacceptable" ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
-                  onClick={() => handleClauseUpdate(clause.clauseId._id, "unacceptable")}
-                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyA}
+                  onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "unacceptable")}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA}
                 >
                   <XCircle className="w-4 h-4 mr-1" />
                   {clause.partyAPreference === "unacceptable" ? '✗ Rejected' : 'Reject'}
@@ -846,8 +1026,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                       ? "secondary"
                       : "outline"
                   }
-                  onClick={() => handleClauseUpdate(clause.clauseId._id, "modify")}
-                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyA}
+                  onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "modify")}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA}
                 >
                   <Edit className="w-4 h-4 mr-1" />
                   Modify
@@ -881,8 +1061,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                     clause.partyBPreference === "acceptable" ? "default" : "outline"
                   }
                   className={clause.partyBPreference === "acceptable" ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
-                  onClick={() => handleClauseUpdate(clause.clauseId._id, "acceptable")}
-                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyB}
+                  onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "acceptable")}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
                   {clause.partyBPreference === "acceptable" ? '✓ Accepted' : 'Accept'}
@@ -895,8 +1075,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                       : "outline"
                   }
                   className={clause.partyBPreference === "unacceptable" ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
-                  onClick={() => handleClauseUpdate(clause.clauseId._id, "unacceptable")}
-                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyB}
+                  onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "unacceptable")}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB}
                 >
                   <XCircle className="w-4 h-4 mr-1" />
                   {clause.partyBPreference === "unacceptable" ? '✗ Rejected' : 'Reject'}
@@ -909,8 +1089,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                       ? "secondary"
                       : "outline"
                   }
-                  onClick={() => handleClauseUpdate(clause.clauseId._id, "modify")}
-                  disabled={isUpdatingClause === clause.clauseId._id || !isPartyB}
+                  onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "modify")}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB}
                 >
                   <Edit className="w-4 h-4 mr-1" />
                   Modify
@@ -986,35 +1166,111 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {Array.isArray(chatMessages) && chatMessages.map((message) => (
-                <div
-                  key={message._id}
-                  className={`flex ${message.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-xs px-3 py-2 rounded-lg ${
-                    message.senderId === user?.id
-                      ? 'bg-blue-500 text-white'
-                      : message.senderRole === 'system'
-                      ? 'bg-gray-200 text-gray-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      {message.isAI ? (
-                        <Bot className="w-3 h-3" />
-                      ) : (
-                        <User className="w-3 h-3" />
-                      )}
-                      <span className="text-xs font-medium">
-                        {message.senderName}
-                      </span>
+              {/* Show loading state if user not loaded */}
+              {!user && (
+                <div className="text-center text-gray-500 py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400 mx-auto mb-2"></div>
+                  <p className="text-sm">Loading messages...</p>
+                </div>
+              )}
+              
+              {/* Show temporary message while sending */}
+              {tempMessage && (
+                <div className="w-full flex justify-end mb-3">
+                  <div className="max-w-xs px-4 py-3 rounded-2xl bg-blue-500 text-white rounded-br-md opacity-70">
+                    <p className="text-sm leading-relaxed">{tempMessage.message}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs opacity-70">Sending...</p>
+                      <div className="flex items-center ml-2">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                      </div>
                     </div>
-                    <p className="text-sm">{message.message}</p>
-                    <p className="text-xs opacity-70 mt-1">
-                      {new Date(message.timestamp).toLocaleTimeString()}
-                    </p>
                   </div>
                 </div>
-              ))}
+              )}
+              
+              {user && Array.isArray(chatMessages) && chatMessages.map((message) => {
+                // Ensure user ID is loaded before determining alignment
+                const currentUserId = String(user?._id || user?.id || '')
+                const messageSenderId = String(message.senderId || '')
+                const isOwnMessage = currentUserId && messageSenderId && currentUserId === messageSenderId
+                const messageTime = message.createdAt || message.timestamp
+                const isPartyA = message.senderRole === 'partyA'
+                
+                
+                // Get real names from agreement
+                const getSenderName = () => {
+                  if (message.senderName) return message.senderName
+                  if (isPartyA) return agreement?.userid?.name || 'Party A'
+                  return agreement?.partyBUserId?.name || 'Party B'
+                }
+                
+                
+                return (
+                  <div
+                    key={message._id}
+                    className={`w-full flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3`}
+                  >
+                    <div 
+                      className={`max-w-xs px-4 py-3 rounded-2xl ${
+                        isOwnMessage
+                          ? 'bg-blue-500 text-white rounded-br-md'
+                          : message.senderRole === 'system'
+                          ? 'bg-gray-200 text-gray-800 rounded-bl-md'
+                          : isPartyA
+                          ? 'bg-gray-100 text-gray-800 rounded-bl-md'
+                          : 'bg-blue-100 text-gray-800 rounded-bl-md'
+                      }`}
+                    >
+                      {!isOwnMessage && (
+                        <div className="flex items-center gap-2 mb-2">
+                          {message.isAI ? (
+                            <Bot className="w-3 h-3" />
+                          ) : (
+                            <User className="w-3 h-3" />
+                          )}
+                          <span className="text-xs font-semibold">
+                            {getSenderName()}
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-sm leading-relaxed">{message.message}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs opacity-70">
+                          {messageTime ? new Date(messageTime).toLocaleTimeString() : 'Just now'}
+                        </p>
+                        {isOwnMessage && (
+                          <div className="flex items-center ml-2">
+                            {message.isSending ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                            ) : (
+                              <CheckCircle className="w-3 h-3 text-green-300" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              
+              {/* Typing indicator */}
+              {typingUsers.length > 0 && (
+                <div className="w-full flex justify-start mb-3">
+                  <div className="max-w-xs px-4 py-3 rounded-2xl bg-gray-100 text-gray-800 rounded-bl-md">
+                    <div className="flex items-center gap-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                      </div>
+                      <span className="text-xs text-gray-600">
+                        {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {/* No messages state */}
               {Array.isArray(chatMessages) && chatMessages.length === 0 && (
@@ -1034,7 +1290,10 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 <Input
                   placeholder="Type your message..."
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value)
+                    handleTyping()
+                  }}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   disabled={sendingMessage}
                 />
