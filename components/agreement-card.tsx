@@ -19,10 +19,10 @@ import {
   Loader2,
   Eye,
   Edit,
-  Trash2
+  // Trash2 // Removed - delete functionality disabled
 } from "lucide-react"
 import { SendInviteDialog } from "./send-invite-dialog"
-import { deleteAgreement } from "@/lib/agreements"
+// import { deleteAgreement } from "@/lib/agreements" // Removed - delete functionality disabled
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 
@@ -71,8 +71,8 @@ export function AgreementCard({
   const router = useRouter()
   const { user } = useAuth()
   const [showInviteDialog, setShowInviteDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  // const [showDeleteDialog, setShowDeleteDialog] = useState(false) // Removed - delete functionality disabled
+  // const [deleting, setDeleting] = useState(false) // Removed - delete functionality disabled
   const { toast } = useToast()
 
   const getStatusColor = (status: string) => {
@@ -112,67 +112,18 @@ export function AgreementCard({
   
   const canDownloadPDF = bothPartiesSigned
   const canDownloadDOC = bothPartiesSigned
-  const canDelete = agreementIsSigned // Allow deletion after agreement is signed
-  const isPartyA = agreement.userid?._id === user?.id // Only Party A can delete
+  // const canDelete = agreementIsSigned // Removed - delete functionality disabled
+  // const isPartyA = agreement.userid?._id === user?.id // Removed - delete functionality disabled
 
-  // Handle delete agreement
-  const handleDeleteAgreement = async () => {
-    try {
-      setDeleting(true)
-      const token = localStorage.getItem("auth_token")
-      if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "Please log in again to continue.",
-          variant: "destructive"
-        })
-        return
-      }
+  // Handle delete agreement - REMOVED
+  // const handleDeleteAgreement = async () => { ... } // Removed - delete functionality disabled
 
-      console.log("=== DELETE AGREEMENT DEBUG ===")
-      console.log("Deleting agreement:", agreement._id)
-      console.log("Agreement name:", agreement.templateId?.templatename)
-      console.log("Current User ID:", user?.id)
-      console.log("Is Party A:", isPartyA)
-      console.log("Agreement Status:", agreement.status)
-      console.log("Party A ID:", agreement.userid?._id)
-      console.log("Party B ID:", agreement.partyBUserId?._id)
-
-      await deleteAgreement(token, agreement._id)
-
-      toast({
-        title: "Agreement Deleted",
-        description: "The agreement has been successfully deleted.",
-        variant: "default"
-      })
-
-      // Refresh the page to update the list
-      window.location.reload()
-    } catch (error: any) {
-      console.error("Error deleting agreement:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete agreement. Please try again.",
-        variant: "destructive"
-      })
-    } finally {
-      setDeleting(false)
-      setShowDeleteDialog(false)
-    }
-  }
-
-  // Debug logging
+  // Debug logging - simplified
   console.log("=== AGREEMENT CARD DEBUG ===")
   console.log("Agreement ID:", agreement._id)
-  console.log("Party A ID:", agreement.userid?._id)
-  console.log("Party B ID:", agreement.partyBUserId?._id)
-  console.log("Current User ID:", user?.id)
-  console.log("Is Party A:", isPartyA)
-  console.log("Can Delete:", canDelete)
-  console.log("Show Delete Button:", canDelete && isPartyA)
   console.log("Agreement Status:", agreement.status)
-  console.log("Party A Name:", agreement.userid?.name)
-  console.log("Party B Name:", agreement.partyBUserId?.name)
+  console.log("Both Parties Signed:", bothPartiesSigned)
+  console.log("Can Download PDF:", canDownloadPDF)
 
   return (
     <>
@@ -288,30 +239,14 @@ export function AgreementCard({
               </div>
             )}
 
-            {/* Delete Button - Only Party A can delete */}
-            {canDelete && isPartyA && (
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                className="w-full"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={deleting}
-              >
-                {deleting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4 mr-2" />
-                )}
-                Delete Agreement
-              </Button>
-            )}
+            {/* Delete Button - REMOVED - delete functionality disabled */}
 
             {/* Status Message */}
             {!bothPartiesSigned && (
               <div className="text-xs text-muted-foreground text-center p-2 bg-muted rounded">
                 {agreementIsSigned 
                   ? 'Download options available after both parties sign the agreement'
-                  : 'Download and delete options available after both parties accept all clauses and sign'
+                  : 'Download options available after both parties accept all clauses and sign'
                 }
               </div>
             )}
@@ -331,8 +266,8 @@ export function AgreementCard({
         }}
       />
 
-      {/* Delete Confirmation Dialog */}
-      {showDeleteDialog && (
+      {/* Delete Confirmation Dialog - REMOVED - delete functionality disabled */}
+      {/* {showDeleteDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center gap-3 mb-4">
@@ -387,7 +322,7 @@ export function AgreementCard({
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </>
   )
 }

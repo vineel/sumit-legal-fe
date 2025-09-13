@@ -34,7 +34,7 @@ import {
   X
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF, downloadAgreementDOC, getAIClauseSuggestions } from "@/lib/agreements"
+import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF, getAIClauseSuggestions } from "@/lib/agreements"
 import { useAuth } from "@/components/auth-provider"
 
 interface RealTimeCollaborationWorkspaceProps {
@@ -873,55 +873,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     }
   }
 
-  /**
-   * Handle DOC Download Button Click
-   * 
-   * This function is triggered when the user clicks the "Download DOC" button.
-   * It handles the complete download flow including authentication, API call,
-   * and user feedback via toast notifications.
-   * 
-   * Flow:
-   * 1. Get authentication token from localStorage
-   * 2. Call the downloadAgreementDOC API service
-   * 3. Show success/error toast notification
-   * 4. Handle any errors gracefully
-   */
-  const handleDownloadDOC = async () => {
-    try {
-      // Get authentication token from browser storage
-      const token = localStorage.getItem("auth_token")
-      if (!token) {
-        // If no token, show error and return early
-        toast({
-          title: "Authentication Required",
-          description: "Please log in to download the agreement",
-          variant: "destructive"
-        })
-        return
-      }
-
-      // Call the API service to download the DOCX file
-      // This will trigger a browser download automatically
-      await downloadAgreementDOC(token, agreementId)
-      
-      // Show success notification to user
-      toast({
-        title: "DOC Downloaded",
-        description: "The agreement DOC has been downloaded",
-        variant: "default"
-      })
-    } catch (err: any) {
-      // Log error for debugging
-      console.error("Error downloading DOC:", err)
-      
-      // Show error notification to user with specific error message
-      toast({
-        title: "Error",
-        description: err.message || "Failed to download DOC",
-        variant: "destructive"
-      })
-    }
-  }
+  // handleDownloadDOC function removed - DOC download functionality disabled
 
   if (loading) {
     return (
@@ -1031,15 +983,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>
-                {/* Download DOC Button - Only visible when both parties have signed */}
-                {/* <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownloadDOC}  // Triggers DOC download functionality
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download DOC
-                </Button> */}
+                {/* Download DOC Button - REMOVED - DOC download functionality disabled */}
               </div>
             )}
           </div>
@@ -1161,6 +1105,21 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 </Card>
               )}
 
+              {/* Agreement Status Message */}
+              {agreement.partyASigned && agreement.partyBSigned && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <div>
+                      <h3 className="font-semibold text-green-800">Agreement Finalized</h3>
+                      <p className="text-sm text-green-700">
+                        Both parties have signed this agreement. Clause preferences can no longer be modified.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Clauses List */}
               <div id="clauses-section">
                 {agreement.clauses.map((clause: any, index) => {
@@ -1247,7 +1206,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   }
                   className={clause.partyAPreference === "acceptable" ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
                   onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "acceptable")}
-                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA || (agreement.partyASigned && agreement.partyBSigned)}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
                   {clause.partyAPreference === "acceptable" ? '✓ Accepted' : 'Accept'}
@@ -1261,7 +1220,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   }
                   className={clause.partyAPreference === "unacceptable" ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
                   onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "unacceptable")}
-                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA || (agreement.partyASigned && agreement.partyBSigned)}
                 >
                   <XCircle className="w-4 h-4 mr-1" />
                   {clause.partyAPreference === "unacceptable" ? '✗ Rejected' : 'Reject'}
@@ -1310,7 +1269,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   }
                   className={clause.partyBPreference === "acceptable" ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
                   onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "acceptable")}
-                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB || (agreement.partyASigned && agreement.partyBSigned)}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
                   {clause.partyBPreference === "acceptable" ? '✓ Accepted' : 'Accept'}
@@ -1324,7 +1283,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   }
                   className={clause.partyBPreference === "unacceptable" ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
                   onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "unacceptable")}
-                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB || (agreement.partyASigned && agreement.partyBSigned)}
                 >
                   <XCircle className="w-4 h-4 mr-1" />
                   {clause.partyBPreference === "unacceptable" ? '✗ Rejected' : 'Reject'}
@@ -1370,7 +1329,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                       >
                         <X className="w-4 h-4" />
                       </Button>
-                    </div>
+            </div>
                     <CardDescription>
                       AI has analyzed your agreement and provided suggestions to benefit both parties
                     </CardDescription>

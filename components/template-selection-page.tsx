@@ -20,7 +20,7 @@ import {
   Loader2
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getTemplates, Template } from "@/lib/user"
+import { getTemplates, Template } from "@/lib/templateApi"
 import { Clause } from "@/lib/clause"
 import { createAgreement, sendInvite } from "@/lib/agreements"
 
@@ -52,7 +52,14 @@ export function TemplateSelectionPage() {
       }
 
       const data = await getTemplates(token)
-      setTemplates(data)
+      console.log("=== TEMPLATES DATA DEBUG ===")
+      console.log("Raw templates data:", data)
+      console.log("Templates array:", data.templates)
+      if (data.templates && data.templates.length > 0) {
+        console.log("First template structure:", data.templates[0])
+        console.log("First template templatename:", data.templates[0].templatename)
+      }
+      setTemplates(data.templates || [])
       setError(null)
     } catch (err) {
       console.error("Error fetching templates:", err)
@@ -63,16 +70,16 @@ export function TemplateSelectionPage() {
   }
 
   const filteredTemplates = templates.filter(template =>
-    template.templatename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (template.templatename && template.templatename.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (template.description && template.description.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   const handleSelectTemplate = (template: Template) => {
     console.log("=== TEMPLATE SELECTION DEBUG ===")
-    console.log("Template clicked:", template.templatename)
+    console.log("Template clicked:", template.templatename || "Unnamed Template")
     console.log("Template ID:", template._id)
     setSelectedTemplate(template)
-    console.log("Selected template set to:", template.templatename)
+    console.log("Selected template set to:", template.templatename || "Unnamed Template")
     
     // Also open the modal immediately after selection
     setTimeout(() => {
@@ -288,7 +295,7 @@ export function TemplateSelectionPage() {
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   <span className="text-green-800 font-medium">
-                    Template Selected: {selectedTemplate.templatename}
+                    Template Selected: {selectedTemplate.templatename || "Unnamed Template"}
                   </span>
                 </div>
                 <p className="text-green-700 text-sm mt-1">
@@ -328,7 +335,7 @@ export function TemplateSelectionPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">{template.templatename}</CardTitle>
+                        <CardTitle className="text-lg">{template.templatename || "Unnamed Template"}</CardTitle>
                         {selectedTemplate?._id === template._id && (
                           <CheckCircle className="w-5 h-5 text-blue-500" />
                         )}
@@ -395,7 +402,7 @@ export function TemplateSelectionPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Template Preview: {selectedTemplate.templatename}</h2>
+              <h2 className="text-2xl font-bold">Template Preview: {selectedTemplate.templatename || "Unnamed Template"}</h2>
               <Button variant="outline" onClick={() => setSelectedTemplate(null)}>
                 Close
               </Button>
@@ -507,7 +514,7 @@ export function TemplateSelectionPage() {
             {(() => {
               console.log("=== MODAL RENDER DEBUG ===")
               console.log("Selected template in modal:", selectedTemplate)
-              console.log("Template name:", selectedTemplate?.templatename)
+              console.log("Template name:", selectedTemplate?.templatename || "Unnamed Template")
               return null
             })()}
             {selectedTemplate && (
@@ -520,7 +527,7 @@ export function TemplateSelectionPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <p className="font-medium">{selectedTemplate.templatename}</p>
+                    <p className="font-medium">{selectedTemplate.templatename || "Unnamed Template"}</p>
                     <p className="text-sm text-muted-foreground">
                       {selectedTemplate.description || "No description available"}
                     </p>

@@ -615,6 +615,49 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
     }
   }
 
+  const handleDownloadDOC = async () => {
+    try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) return
+
+      // Generate DOC first
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/agreement/${agreementId}/generate-doc`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate DOC')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `agreement-${agreement.templateId?.templatename || 'agreement'}-${new Date().toISOString().split('T')[0]}.docx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Download Started",
+        description: "Agreement DOC is being downloaded",
+        variant: "default"
+      })
+    } catch (err) {
+      console.error("Error downloading DOC:", err)
+      toast({
+        title: "Error",
+        description: "Failed to download DOC",
+        variant: "destructive"
+      })
+    }
+  }
 
   const allClausesAgreed = clauses.every(clause => 
     clause.partyAPreference && clause.partyBPreference && 
@@ -676,6 +719,10 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                 <Download className="w-4 h-4 mr-2" />
                   PDF
               </Button>
+                <Button onClick={handleDownloadDOC} variant="outline">
+                  <Download className="w-4 h-4 mr-2" />
+                  DOC
+                </Button>
               </div>
             )}
             <Button variant="outline" onClick={() => router.back()}>
@@ -1158,6 +1205,10 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                     <Download className="w-4 h-4 mr-2" />
                       Download PDF
                     </Button>
+                    {/* <Button onClick={handleDownloadDOC} size="lg" variant="outline">
+                      <Download className="w-4 h-4 mr-2" />
+                      Download DOC
+                  </Button> */}
                   </div>
                   <p className="text-sm text-muted-foreground text-center">
                     Choose your preferred format for the final agreement document
