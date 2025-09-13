@@ -34,7 +34,7 @@ import {
   X
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF, getAIClauseSuggestions } from "@/lib/agreements"
+import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF, downloadAgreementDOC, getAIClauseSuggestions } from "@/lib/agreements"
 import { useAuth } from "@/components/auth-provider"
 
 interface RealTimeCollaborationWorkspaceProps {
@@ -873,6 +873,55 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     }
   }
 
+  /**
+   * Handle DOC Download Button Click
+   * 
+   * This function is triggered when the user clicks the "Download DOC" button.
+   * It handles the complete download flow including authentication, API call,
+   * and user feedback via toast notifications.
+   * 
+   * Flow:
+   * 1. Get authentication token from localStorage
+   * 2. Call the downloadAgreementDOC API service
+   * 3. Show success/error toast notification
+   * 4. Handle any errors gracefully
+   */
+  const handleDownloadDOC = async () => {
+    try {
+      // Get authentication token from browser storage
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        // If no token, show error and return early
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to download the agreement",
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Call the API service to download the DOCX file
+      // This will trigger a browser download automatically
+      await downloadAgreementDOC(token, agreementId)
+      
+      // Show success notification to user
+      toast({
+        title: "DOC Downloaded",
+        description: "The agreement DOC has been downloaded",
+        variant: "default"
+      })
+    } catch (err: any) {
+      // Log error for debugging
+      console.error("Error downloading DOC:", err)
+      
+      // Show error notification to user with specific error message
+      toast({
+        title: "Error",
+        description: err.message || "Failed to download DOC",
+        variant: "destructive"
+      })
+    }
+  }
 
   if (loading) {
     return (
@@ -982,6 +1031,15 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>
+                {/* Download DOC Button - Only visible when both parties have signed */}
+                {/* <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadDOC}  // Triggers DOC download functionality
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download DOC
+                </Button> */}
               </div>
             )}
           </div>
