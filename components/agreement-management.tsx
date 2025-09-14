@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   FileText, 
   Mail, 
@@ -24,8 +25,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getAgreements } from "@/lib/user"
-import { updateAgreementStatus, downloadAgreementPDF, sendInvite, Agreement, AgreementStatus } from "@/lib/agreements"
+import { updateAgreementStatus, downloadAgreementPDF, sendInvite, getAgreements, Agreement, AgreementStatus } from "@/lib/agreements"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -345,148 +345,263 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
         )}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {agreements.map((agreement) => (
-          <Card key={agreement._id} className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg">
-                    {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : 'Custom Agreement'}
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    {agreement.partyBEmail || 'No email provided'}
-                  </CardDescription>
+      {userRole === 'admin' ? (
+        // Admin Table View
+        <Card>
+          <CardHeader>
+            <CardTitle>All Agreements</CardTitle>
+            <CardDescription>
+              Complete list of all agreements in the system with party details and PDF download options
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Agreement</TableHead>
+                  <TableHead>Party A</TableHead>
+                  <TableHead>Party B</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Effective Date</TableHead>
+                  <TableHead>Signatures</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {agreements.map((agreement) => (
+                  <TableRow key={agreement._id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">
+                          {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : 'Custom Agreement'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          ID: {agreement._id.slice(-8)}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">
+                          {typeof agreement.userid === 'object' ? agreement.userid.name : 'Unknown'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {typeof agreement.userid === 'object' ? agreement.userid.email : agreement.userid}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">
+                          {agreement.partyBUserId ? 
+                            (typeof agreement.partyBUserId === 'object' ? agreement.partyBUserId.name : 'Registered User') : 
+                            'Email Invite'
+                          }
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {agreement.partyBEmail || 
+                           (typeof agreement.partyBUserId === 'object' ? agreement.partyBUserId.email : agreement.partyBUserId) || 
+                           'Not set'}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`${getStatusColor(agreement.status || 'draft')} flex items-center gap-1 w-fit`}>
+                        {getStatusIcon(agreement.status || 'draft')}
+                        {(agreement.status || 'draft').replace('-', ' ').toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {agreement.effectiveDate ? new Date(agreement.effectiveDate).toLocaleDateString() : 'Not set'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className={`flex items-center gap-1 ${agreement.partyASignature ? 'text-green-600' : 'text-gray-400'}`}>
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs">A</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${agreement.partyBSignature ? 'text-green-600' : 'text-gray-400'}`}>
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs">B</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {/* <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button> */}
+                        {agreement.status === 'signed' && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleDownloadPDF(agreement._id)}
+                            disabled={actionLoading === agreement._id}
+                          >
+                            {actionLoading === agreement._id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        // Party Card View
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {agreements.map((agreement) => (
+            <Card key={agreement._id} className="hover:shadow-md transition-shadow">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">
+                      {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : 'Custom Agreement'}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      {agreement.partyBEmail || 'No email provided'}
+                    </CardDescription>
+                  </div>
+                  <Badge className={`${getStatusColor(agreement.status || 'draft')} flex items-center gap-1`}>
+                    {getStatusIcon(agreement.status || 'draft')}
+                    {(agreement.status || 'draft').replace('-', ' ').toUpperCase()}
+                  </Badge>
                 </div>
-                <Badge className={`${getStatusColor(agreement.status || 'draft')} flex items-center gap-1`}>
-                  {getStatusIcon(agreement.status || 'draft')}
-                  {(agreement.status || 'draft').replace('-', ' ').toUpperCase()}
-                </Badge>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              {/* Agreement Details */}
-              <div className="space-y-2 text-sm text-muted-foreground">
-                {agreement.effectiveDate && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>Effective: {new Date(agreement.effectiveDate).toLocaleDateString()}</span>
-                  </div>
-                )}
-                {agreement.jurisdiction && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    <span>{agreement.jurisdiction}</span>
-                  </div>
-                )}
-                {agreement.termDuration && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    <span>Duration: {agreement.termDuration}</span>
-                  </div>
-                )}
-              </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                {/* Agreement Details */}
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  {agreement.effectiveDate && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>Effective: {new Date(agreement.effectiveDate).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {agreement.jurisdiction && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      <span>{agreement.jurisdiction}</span>
+                    </div>
+                  )}
+                  {agreement.termDuration && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      <span>Duration: {agreement.termDuration}</span>
+                    </div>
+                  )}
+                </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-2">
-                {/* Status-based actions */}
-                {canEndInvite(agreement) && (
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => handleStatusUpdate(agreement._id, 'rejected')}
-                    disabled={actionLoading === agreement._id}
-                  >
-                    {actionLoading === agreement._id ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <XCircle className="w-4 h-4 mr-2" />
-                    )}
-                    End Invite
-                  </Button>
-                )}
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  {/* Status-based actions */}
+                  {canEndInvite(agreement) && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleStatusUpdate(agreement._id, 'rejected')}
+                      disabled={actionLoading === agreement._id}
+                    >
+                      {actionLoading === agreement._id ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <XCircle className="w-4 h-4 mr-2" />
+                      )}
+                      End Invite
+                    </Button>
+                  )}
 
-                {canStartAgreement(agreement) && (
-                  <Button 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Start Agreement
-                  </Button>
-                )}
+                  {canStartAgreement(agreement) && (
+                    <Button 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Start Agreement
+                    </Button>
+                  )}
 
-                {/* Send Invite button - show when no party B is set */}
-                {!agreement.partyBUserId && !agreement.partyBEmail && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => openInviteDialog(agreement)}
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Send Invite
-                  </Button>
-                )}
+                  {/* Send Invite button - show when no party B is set */}
+                  {!agreement.partyBUserId && !agreement.partyBEmail && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => openInviteDialog(agreement)}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Send Invite
+                    </Button>
+                  )}
 
-                {/* View/Edit actions */}
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View
-                  </Button>
-                  
-                  {agreement.status === 'in-progress' && (
+                  {/* View/Edit actions */}
+                  <div className="flex gap-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
                       className="flex-1"
                       onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
                     >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit
+                      <Eye className="w-4 h-4 mr-2" />
+                      View
+                    </Button>
+                    
+                    {agreement.status === 'in-progress' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Download PDF */}
+                  {agreement.status === 'signed' && (
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleDownloadPDF(agreement._id)}
+                      disabled={actionLoading === agreement._id}
+                    >
+                      {actionLoading === agreement._id ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 mr-2" />
+                      )}
+                      Download PDF
                     </Button>
                   )}
+
+                  {/* Show message if PDF not ready */}
+                  {agreement.status !== 'signed' && (
+                    <div className="text-xs text-muted-foreground text-center p-2 bg-muted rounded">
+                      PDF available after both parties sign
+                    </div>
+                  )}
                 </div>
-
-                {/* Download PDF */}
-                {agreement.status === 'signed' && (
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => handleDownloadPDF(agreement._id)}
-                    disabled={actionLoading === agreement._id}
-                  >
-                    {actionLoading === agreement._id ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4 mr-2" />
-                    )}
-                    Download PDF
-                  </Button>
-                )}
-
-                {/* Show message if PDF not ready */}
-                {agreement.status !== 'signed' && (
-                  <div className="text-xs text-muted-foreground text-center p-2 bg-muted rounded">
-                    PDF available after both parties sign
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Send Invite Dialog */}
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
