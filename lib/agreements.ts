@@ -135,7 +135,7 @@ export async function getChatMessages(
   return response.data;
 }
 
-// --- Download Agreement PDF ---
+// --- Download Agreement PDF (Admin) ---
 export async function downloadAgreementPDF(
   token: string,
   agreementId: string
@@ -165,6 +165,40 @@ export async function downloadAgreementPDF(
     window.URL.revokeObjectURL(url);
   } catch (error: any) {
     console.error('Error downloading PDF:', error);
+    throw error;
+  }
+}
+
+// --- Generate Agreement PDF (Regular Users) ---
+export async function generateAgreementPDF(
+  token: string,
+  agreementId: string
+): Promise<void> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/generate-pdf`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate PDF');
+    }
+
+    // Create blob and download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `agreement-${agreementId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    console.error('Error generating PDF:', error);
     throw error;
   }
 }

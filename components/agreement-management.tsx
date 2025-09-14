@@ -25,7 +25,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { updateAgreementStatus, downloadAgreementPDF, sendInvite, getAgreements, Agreement, AgreementStatus } from "@/lib/agreements"
+import { updateAgreementStatus, downloadAgreementPDF, generateAgreementPDF, sendInvite, getAgreements, Agreement, AgreementStatus } from "@/lib/agreements"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -132,15 +132,12 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
         return
       }
 
-      const pdfUrl = await downloadAgreementPDF(token, agreementId)
-      
-      // Create download link
-      const link = document.createElement('a')
-      link.href = pdfUrl
-      link.download = `agreement-${agreementId}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      // Use different PDF function based on user role
+      if (userRole === 'admin') {
+        await downloadAgreementPDF(token, agreementId)
+      } else {
+        await generateAgreementPDF(token, agreementId)
+      }
 
       toast({
         title: "Download Started",
