@@ -760,10 +760,25 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
         <TabsContent value="clauses" className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Agreement Clauses</h3>
-            <Button onClick={() => setIsAddClauseDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Custom Clause
-            </Button>
+            <div className="flex items-center gap-2">
+              {agreement?.partyASignature && agreement?.partyBSignature && (
+                <div className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  Agreement finalized - no changes allowed
+                </div>
+              )}
+              <Button 
+                onClick={() => setIsAddClauseDialogOpen(true)}
+                disabled={agreement?.partyASignature && agreement?.partyBSignature}
+                title={agreement?.partyASignature && agreement?.partyBSignature ? 
+                  "Cannot add clauses after both parties have signed" : 
+                  "Add a custom clause to this agreement"
+                }
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Custom Clause
+              </Button>
+            </div>
           </div>
           <div className="grid gap-6">
             {clauses.map((clause) => {

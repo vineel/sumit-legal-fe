@@ -1040,24 +1040,37 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                     {agreement.clauses?.length || 0} clauses
                   </Badge>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGetAISuggestions}
-                    disabled={loadingSuggestions}
-                  >
-                    <Bot className="w-4 h-4 mr-2" />
-                    {loadingSuggestions ? 'Analyzing...' : 'AI Suggestions'}
-                  </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddClause(!showAddClause)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Custom Clause
-                </Button>
+                <div className="flex items-center gap-2">
+                  {agreement?.partyASignature && agreement?.partyBSignature && (
+                    <div className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                      <AlertCircle className="w-4 h-4 inline mr-1" />
+                      Agreement finalized - no changes allowed
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGetAISuggestions}
+                      disabled={loadingSuggestions}
+                    >
+                      <Bot className="w-4 h-4 mr-2" />
+                      {loadingSuggestions ? 'Analyzing...' : 'AI Suggestions'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddClause(!showAddClause)}
+                      disabled={agreement?.partyASignature && agreement?.partyBSignature}
+                      title={agreement?.partyASignature && agreement?.partyBSignature ? 
+                        "Cannot add clauses after both parties have signed" : 
+                        "Add a custom clause to this agreement"
+                      }
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Custom Clause
+                    </Button>
+                  </div>
                 </div>
               </div>
 

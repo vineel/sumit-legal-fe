@@ -13,7 +13,7 @@ import {
 import { User as UserIcon, LogOut, UserCircle, FileText, Users } from "lucide-react"
 import Link from "next/link"
 import { SimpleAgreementManagement } from "@/components/simple-agreement-management"
-import { NotificationDropdown } from "@/components/notification-dropdown"
+// import { NotificationDropdown } from "@/components/notification-dropdown"
 
 export function PartyDashboard() {
   const { user, logout } = useAuth()
@@ -29,7 +29,7 @@ export function PartyDashboard() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Welcome, {user?.name}</span>
-              <NotificationDropdown />
+              {/* <NotificationDropdown /> */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
