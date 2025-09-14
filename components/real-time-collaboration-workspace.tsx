@@ -129,6 +129,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   const [customClauseName, setCustomClauseName] = useState("")
   const [showAddClause, setShowAddClause] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState<string[]>([])
+  const [onlineCount, setOnlineCount] = useState(1) // Start with 1 (current user)
   const [aiSuggestions, setAiSuggestions] = useState<string | null>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -144,11 +145,19 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
 
   // Initialize socket connection
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000'
-    console.log("Connecting to socket:", socketUrl)
+    // Socket.IO needs the base server URL, not the API URL
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'
+    console.log("🔌 Connecting to Socket.IO server:", baseUrl)
     
-    const newSocket = io(socketUrl, {
-      transports: ['websocket', 'polling']
+    const newSocket = io(baseUrl, {
+      transports: ['polling', 'websocket'],
+      autoConnect: true,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      timeout: 20000,
+      forceNew: true,
+      upgrade: true
     })
 
     newSocket.on('connect', () => {
@@ -156,21 +165,36 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       setIsConnected(true)
       
       // Join the agreement room
+      console.log("🏠 Joining agreement room:", agreementId, "for user:", user?.id)
       newSocket.emit('join-agreement', { 
         agreementId, 
         userId: user?.id,
         userName: user?.name || 'Unknown User'
       })
+      
+      // Set initial online count to 1 (current user)
+      setOnlineCount(1)
     })
 
-    newSocket.on('disconnect', () => {
-      console.log("❌ Socket disconnected")
+    newSocket.on('disconnect', (reason) => {
+      console.log("❌ Socket disconnected:", reason)
       setIsConnected(false)
     })
 
+    newSocket.on('connect_error', (error) => {
+      console.error("🚨 Socket connection error:", error)
+      setIsConnected(false)
+    })
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log("🔄 Socket reconnected after", attemptNumber, "attempts")
+      setIsConnected(true)
+    })
+
     newSocket.on('user-joined', (data) => {
-      console.log("User joined:", data)
+      console.log("👤 User joined:", data)
       setOnlineUsers(prev => [...prev.filter(id => id !== data.userId), data.userId])
+      setOnlineCount(data.onlineCount || 1) // Use server's count
       toast({
         title: "User Joined",
         description: `${data.userName} joined the collaboration`,
@@ -179,8 +203,9 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     })
 
     newSocket.on('user-left', (data) => {
-      console.log("User left:", data)
+      console.log("👤 User left:", data)
       setOnlineUsers(prev => prev.filter(id => id !== data.userId))
+      setOnlineCount(data.onlineCount || 1) // Use server's count
       toast({
         title: "User Left",
         description: `${data.userName} left the collaboration`,
@@ -189,17 +214,33 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     })
 
     newSocket.on('message', (message: ChatMessage) => {
-      console.log("New message received:", message)
-      setChatMessages(prev => [...prev, message])
+      console.log("📨 New message received via Socket.IO:", message)
       
-      // Increment unread count if chat is closed
-      if (!isChatOpen) {
+      // Check if this is a message from the current user
+      const currentUserId = String(user?._id || user?.id || '')
+      const messageSenderId = String(message.senderId || '')
+      const isOwnMessage = currentUserId && messageSenderId && currentUserId === messageSenderId
+      
+      setChatMessages(prev => {
+        console.log("📨 Current messages before adding:", prev.length)
+        const newMessages = [...prev, message]
+        console.log("📨 New messages after adding:", newMessages.length)
+        return newMessages
+      })
+      
+      // Only increment unread count if chat is closed AND it's not your own message
+      if (!isChatOpen && !isOwnMessage) {
         setUnreadCount(prev => prev + 1)
+        console.log("📨 Incremented unread count (chat closed, not own message)")
+      } else if (isOwnMessage) {
+        console.log("📨 Not incrementing unread count (own message)")
+      } else {
+        console.log("📨 Not incrementing unread count (chat is open)")
       }
     })
 
     newSocket.on('clause-updated', (data) => {
-      console.log("Clause updated:", data)
+      // console.log("Clause updated:", data)
       setAgreement(prev => {
         if (!prev) return prev
         return {
@@ -217,7 +258,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     })
 
     newSocket.on('agreement-status-change', (data) => {
-      console.log("Agreement status changed:", data)
+      // console.log("Agreement status changed:", data)
       setAgreement(prev => prev ? { ...prev, status: data.status } : null)
       toast({
         title: "Agreement Status Updated",
@@ -245,7 +286,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     })
 
     newSocket.on('agreement-signed', (data) => {
-      console.log("Agreement signed:", data)
+      // console.log("Agreement signed:", data)
       setAgreement(prev => prev ? { 
         ...prev, 
         partyASignature: data.partyASignature || prev.partyASignature,
@@ -259,7 +300,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     })
 
     newSocket.on('custom-clause-added', (data) => {
-      console.log("Custom clause added:", data)
+      // console.log("Custom clause added:", data)
       setAgreement(prev => prev ? {
         ...prev,
         clauses: [...prev.clauses, data.clause]
@@ -289,13 +330,16 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
         userId: user?.id,
         userName: user?.name || 'Unknown User'
       })
+      console.log("🔌 Disconnecting socket...")
       newSocket.close()
+      setSocket(null)
     }
   }, [agreementId, user?.id, toast])
 
   // Reset unread count when chat is opened
   useEffect(() => {
     if (isChatOpen) {
+      console.log("📖 Chat opened - clearing unread count")
       setUnreadCount(0)
     }
   }, [isChatOpen])
@@ -321,10 +365,10 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
 
   // Load agreement data
   useEffect(() => {
-    console.log("=== COLLABORATION WORKSPACE EFFECT ===")
-    console.log("Agreement ID:", agreementId)
-    console.log("User from context:", user)
-    console.log("User from localStorage:", localStorage.getItem('user'))
+    // console.log("=== COLLABORATION WORKSPACE EFFECT ===")
+    // console.log("Agreement ID:", agreementId)
+    // console.log("User from context:", user)
+    // console.log("User from localStorage:", localStorage.getItem('user'))
     
     const loadAgreement = async () => {
       try {
@@ -335,15 +379,15 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
           return
         }
 
-        console.log("Loading agreement with ID:", agreementId)
+        // console.log("Loading agreement with ID:", agreementId)
         const agreementData = await getAgreementById(token, agreementId)
-        console.log("Agreement loaded:", agreementData)
+        // console.log("Agreement loaded:", agreementData)
         setAgreement(agreementData)
 
         // Load chat messages
         try {
           const messagesData = await getChatMessages(token, agreementId)
-          console.log("Chat messages data:", messagesData)
+          // console.log("Chat messages data:", messagesData)
           setChatMessages(Array.isArray(messagesData.messages) ? messagesData.messages : [])
         } catch (chatError) {
           console.error("Error loading chat messages:", chatError)
@@ -413,42 +457,42 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   }
   
   // Debug authorization
-  console.log("=== FRONTEND AUTHORIZATION DEBUG ===")
-  console.log("Agreement exists:", !!agreement)
-  console.log("User exists:", !!user)
-  console.log("Agreement:", agreement)
-  console.log("User:", user)
-  console.log("Party A ID:", agreement?.userid?._id)
-  console.log("Party B ID:", agreement?.partyBUserId?._id)
-  console.log("Current User ID:", user?.id)
-  console.log("User from localStorage:", localStorage.getItem('user'))
-  console.log("Parsed user from localStorage:", parsedUser)
-  console.log("Parsed user _id:", parsedUser?._id)
-  console.log("User context id:", user?.id)
-  console.log("Final User ID:", userId)
-  console.log("Final User ID string:", userIdStr)
-  console.log("Party A ID string:", agreement?.userid?._id?.toString())
-  console.log("Party B ID string:", agreement?.partyBUserId?._id?.toString())
-  console.log("String comparison Party A:", agreement?.userid?._id?.toString() === userIdStr)
-  console.log("String comparison Party B:", agreement?.partyBUserId?._id?.toString() === userIdStr)
-  console.log("Is Party A:", isPartyA)
-  console.log("Is Party B:", isPartyB)
-  console.log("Is Authorized:", isAuthorized)
-  console.log("Party A ID type:", typeof agreement?.userid?._id)
-  console.log("Party B ID type:", typeof agreement?.partyBUserId?._id)
-  console.log("User ID type:", typeof user?.id)
+  // console.log("=== FRONTEND AUTHORIZATION DEBUG ===")
+  // console.log("Agreement exists:", !!agreement)
+  // console.log("User exists:", !!user)
+  // console.log("Agreement:", agreement)
+  // console.log("User:", user)
+  // console.log("Party A ID:", agreement?.userid?._id)
+  // console.log("Party B ID:", agreement?.partyBUserId?._id)
+  // console.log("Current User ID:", user?.id)
+  // console.log("User from localStorage:", localStorage.getItem('user'))
+  // console.log("Parsed user from localStorage:", parsedUser)
+  // console.log("Parsed user _id:", parsedUser?._id)
+  // console.log("User context id:", user?.id)
+  // console.log("Final User ID:", userId)
+  // console.log("Final User ID string:", userIdStr)
+  // console.log("Party A ID string:", agreement?.userid?._id?.toString())
+  // console.log("Party B ID string:", agreement?.partyBUserId?._id?.toString())
+  // console.log("String comparison Party A:", agreement?.userid?._id?.toString() === userIdStr)
+  // console.log("String comparison Party B:", agreement?.partyBUserId?._id?.toString() === userIdStr)
+  // console.log("Is Party A:", isPartyA)
+  // console.log("Is Party B:", isPartyB)
+  // console.log("Is Authorized:", isAuthorized)
+  // console.log("Party A ID type:", typeof agreement?.userid?._id)
+  // console.log("Party B ID type:", typeof agreement?.partyBUserId?._id)
+  // console.log("User ID type:", typeof user?.id)
   
   // Additional debugging for the specific case
   if (agreement && userId) {
-    console.log("=== DETAILED COMPARISON ===")
-    console.log("Party A ObjectId:", agreement.userid?._id)
-    console.log("Party B ObjectId:", agreement.partyBUserId?._id)
-    console.log("User ID from context:", user?.id)
-    console.log("Final User ID:", userId)
-    console.log("Direct comparison Party A:", agreement.userid?._id === userId)
-    console.log("Direct comparison Party B:", agreement.partyBUserId?._id === userId)
-    console.log("String comparison Party A:", agreement.userid?._id?.toString() === userIdStr)
-    console.log("String comparison Party B:", agreement.partyBUserId?._id?.toString() === userIdStr)
+    // console.log("=== DETAILED COMPARISON ===")
+    // console.log("Party A ObjectId:", agreement.userid?._id)
+    // console.log("Party B ObjectId:", agreement.partyBUserId?._id)
+    // console.log("User ID from context:", user?.id)
+    // console.log("Final User ID:", userId)
+    // console.log("Direct comparison Party A:", agreement.userid?._id === userId)
+    // console.log("Direct comparison Party B:", agreement.partyBUserId?._id === userId)
+    // console.log("String comparison Party A:", agreement.userid?._id?.toString() === userIdStr)
+    // console.log("String comparison Party B:", agreement.partyBUserId?._id?.toString() === userIdStr)
   }
 
   // Handle clause preference update
@@ -509,6 +553,11 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   // Handle typing indicator with debouncing
   const handleTyping = () => {
     if (!socket || !isAuthorized) return
+    
+    // Clear unread count when user starts typing (they're actively reading)
+    if (unreadCount > 0) {
+      setUnreadCount(0)
+    }
     
     // Clear existing timeout
     if (typingTimeoutRef.current) {
@@ -587,13 +636,15 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       )
 
       // Emit real-time message
-      socket.emit('send-message', {
+      const socketMessage = {
         agreementId,
-        message: messageData.message,
+        message: messageText, // Use original message text, not API response
         senderId: String(user?._id || user?.id || ''),
         senderName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown')),
         senderRole: isPartyA ? 'partyA' : 'partyB'
-      })
+      }
+      console.log("📤 Emitting Socket.IO message:", socketMessage)
+      socket.emit('send-message', socketMessage)
 
       // Remove temp message
       setTempMessage(null)
@@ -799,7 +850,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       }
 
       const result = await response.json()
-      console.log("Custom clause added:", result)
+      // console.log("Custom clause added:", result)
 
       setCustomClauseText("")
       setCustomClauseName("")
@@ -955,7 +1006,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-gray-600" />
               <span className="text-sm text-gray-600">
-                {onlineUsers.length + 1} online
+                {onlineCount} online
               </span>
             </div>
 
@@ -968,9 +1019,9 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
             >
               <MessageSquare className="w-4 h-4 mr-2" />
               Chat
-              {(isChatOpen ? chatMessages.length : unreadCount) > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {isChatOpen ? chatMessages.length : unreadCount}
+                  {unreadCount}
                 </span>
               )}
             </Button>
@@ -1139,7 +1190,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
               {/* Clauses List */}
               <div id="clauses-section">
                 {agreement.clauses.map((clause: any, index) => {
-  console.log("Clause:", index, clause); // ✅ now works correctly
+  // console.log("Clause:", index, clause); // ✅ now works correctly
 
   return (
     <Card key={clause._id} className="hover:shadow-md transition-shadow">
@@ -1463,7 +1514,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 </Button>
               </div>
               <p className="text-sm text-gray-600 mt-1">
-                {onlineUsers.length + 1} user{onlineUsers.length + 1 !== 1 ? 's' : ''} online
+                {onlineCount} user{onlineCount !== 1 ? 's' : ''} online
               </p>
             </div>
 
@@ -1492,13 +1543,18 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 </div>
               )}
               
-              {user && Array.isArray(chatMessages) && chatMessages.map((message) => {
+              {user && Array.isArray(chatMessages) && chatMessages.map((message, index) => {
                 // Ensure user ID is loaded before determining alignment
                 const currentUserId = String(user?._id || user?.id || '')
                 const messageSenderId = String(message.senderId || '')
                 const isOwnMessage = currentUserId && messageSenderId && currentUserId === messageSenderId
                 const messageTime = message.createdAt || message.timestamp
                 const isPartyA = message.senderRole === 'partyA'
+                
+                // Alternative alignment check using party roles
+                const isCurrentUserPartyA = agreement?.userid?.toString() === currentUserId
+                const isMessageFromPartyA = message.senderRole === 'partyA'
+                const isMyMessage = (isCurrentUserPartyA && isMessageFromPartyA) || (!isCurrentUserPartyA && !isMessageFromPartyA)
                 
                 
                 // Get real names from agreement
@@ -1511,12 +1567,12 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 
                 return (
                 <div
-                  key={message._id}
-                    className={`w-full flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3`}
+                  key={message._id || `message-${index}-${Date.now()}`}
+                    className={`w-full flex ${isMyMessage ? 'justify-end' : 'justify-start'} mb-3`}
                   >
                     <div 
                       className={`max-w-xs px-4 py-3 rounded-2xl ${
-                        isOwnMessage
+                        isMyMessage
                           ? 'bg-blue-500 text-white rounded-br-md'
                       : message.senderRole === 'system'
                           ? 'bg-gray-200 text-gray-800 rounded-bl-md'
@@ -1525,7 +1581,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                           : 'bg-blue-100 text-gray-800 rounded-bl-md'
                       }`}
                     >
-                      {!isOwnMessage && (
+                      {!isMyMessage && (
                         <div className="flex items-center gap-2 mb-2">
                       {message.isAI ? (
                         <Bot className="w-3 h-3" />

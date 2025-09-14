@@ -88,6 +88,8 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
   })
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [isChatOpen, setIsChatOpen] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -104,6 +106,13 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       }
     }
   }, [agreementId])
+
+  // Reset unread count when chat is opened
+  useEffect(() => {
+    if (isChatOpen) {
+      setUnreadCount(0)
+    }
+  }, [isChatOpen])
 
   const initializeSocket = () => {
     const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000', {
@@ -162,6 +171,12 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       console.log('New chat message:', data)
       if (data.agreementId === agreementId) {
         setChatMessages(prev => [...prev, data.message])
+        
+        // Increment unread count if chat is closed
+        if (!isChatOpen) {
+          setUnreadCount(prev => prev + 1)
+        }
+        
         // Scroll to bottom
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -742,6 +757,19 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
                 </Button>
               </div>
             )}
+            <Button 
+              variant="outline" 
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className="relative"
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Chat
+              {unreadCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </Button>
             <Button variant="outline" onClick={() => router.back()}>
               Back
             </Button>

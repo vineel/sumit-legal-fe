@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
+import { io, Socket } from "socket.io-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -81,39 +82,147 @@ export function RealtimeCollaborationWorkspace() {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([])
   const [isTyping, setIsTyping] = useState(false)
   const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [isSendingMessage, setIsSendingMessage] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
 
   // Initialize Socket.io connection
   useEffect(() => {
-    if (!agreementId) return
+    // Get user from localStorage as fallback
+    const storedUser = JSON.parse(localStorage.getItem('user') || '{}')
+    const userId = user?.id || storedUser._id
+    
+    if (!agreementId || !userId) {
+      console.log('❌ Missing agreementId or user ID:', { agreementId, userId })
+      return
+    }
 
-    const newSocket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000", {
-      transports: ['websocket', 'polling']
+    const socketUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+    // console.log('🔌 Initializing Socket.IO connection to:', socketUrl)
+    // console.log('🔌 Agreement ID:', agreementId)
+    // console.log('🔌 User ID:', user?.id)
+    // console.log('🔌 User Name:', user?.name)
+    // console.log('🔌 Socket.IO available:', typeof io)
+    // console.log('🔌 Environment variables:', {
+    //   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    //   NODE_ENV: process.env.NODE_ENV
+    // })
+    
+    let newSocket
+    try {
+      newSocket = io(socketUrl, {
+        transports: ['websocket', 'polling'],
+        autoConnect: true,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5
+      })
+      // console.log('🔌 Socket.IO client created:', newSocket)
+      setSocket(newSocket)
+    } catch (error) {
+      console.error('❌ Error creating Socket.IO client:', error)
+      return
+    }
+
+    // Socket connection events
+    newSocket.on('connect', () => {
+      console.log('✅ Socket connected:', newSocket.id)
+      // Join room after connection is established
+      newSocket.emit('join-agreement', { 
+        agreementId, 
+        userId: userId, 
+        userName: user?.name || storedUser.name 
+      })
+      console.log('📡 Joined agreement room:', agreementId)
     })
-    setSocket(newSocket)
 
-    // Join agreement room
-    newSocket.emit('join-agreement', agreementId)
+    newSocket.on('disconnect', (reason) => {
+      // console.log('❌ Socket disconnected:', reason)
+    })
+
+    newSocket.on('connect_error', (error) => {
+      console.error('🚨 Socket connection error:', error)
+    })
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      // console.log('🔄 Socket reconnected after', attemptNumber, 'attempts')
+      // Rejoin room after reconnection
+      newSocket.emit('join-agreement', { 
+        agreementId, 
+        userId: userId, 
+        userName: user?.name || storedUser.name 
+      })
+    })
 
     // Listen for real-time updates
     newSocket.on('clause-updated', (data) => {
+      console.log('Received clause update:', data)
       if (data.agreementId === agreementId) {
         setClauses(data.clauses)
       }
     })
 
     newSocket.on('receive-message', (data) => {
+      console.log('📨 Received real-time message:', data)
+      console.log('📨 Current agreementId:', agreementId)
+      console.log('📨 Message agreementId:', data.agreementId)
+      console.log('📨 Is chat open:', isChatOpen)
+      console.log('📨 Current user ID:', user?.id)
+      console.log('📨 Message sender ID:', data.senderId)
+      
       if (data.agreementId === agreementId) {
-        setMessages(prev => [...prev, data])
+        // console.log('✅ Message matches current agreement, processing...')
+        setMessages(prev => {
+          // Check if message already exists to avoid duplicates
+          const exists = prev.some(msg => msg._id === data._id)
+          if (exists) {
+            // console.log('⚠️ Message already exists, skipping duplicate')
+            return prev
+          }
+          
+          // Remove any temporary messages from the same sender
+          const withoutTemp = prev.filter(msg => 
+            !(msg.isTemporary && msg.senderId === data.senderId)
+          )
+          
+          // console.log('📝 Adding new message to state:', data)
+          return [...withoutTemp, data]
+        })
         scrollToBottom()
+        
+        // Increment unread count if message is not from current user and chat is closed
+        if (data.senderId !== user?.id && !isChatOpen) {
+          setUnreadCount(prev => {
+            const newCount = prev + 1
+            // console.log('📊 Incremented unread count:', newCount)
+            return newCount
+          })
+        }
+      } else {
+        // console.log('❌ Message does not match current agreement')
       }
     })
 
     newSocket.on('agreement-status-updated', (data) => {
       if (data.agreementId === agreementId) {
         setAgreement(prev => prev ? { ...prev, status: data.status } : null)
+      }
+    })
+
+    newSocket.on('user-joined', (data) => {
+      // console.log('👤 User joined:', data)
+      if (data.onlineCount !== undefined) {
+        setOnlineUsers(Array(data.onlineCount).fill('user'))
+      }
+    })
+
+    newSocket.on('user-left', (data) => {
+      // console.log('👤 User left:', data)
+      if (data.onlineCount !== undefined) {
+        setOnlineUsers(Array(data.onlineCount).fill('user'))
       }
     })
 
@@ -176,6 +285,21 @@ export function RealtimeCollaborationWorkspace() {
     scrollToBottom()
   }, [messages])
 
+  // Clear unread count when chat is opened
+  const handleChatOpen = () => {
+    setIsChatOpen(true)
+    setUnreadCount(0)
+  }
+
+  // Set chat as closed when switching tabs
+  const handleTabChange = (tab: string) => {
+    if (tab !== 'chat') {
+      setIsChatOpen(false)
+    } else {
+      handleChatOpen()
+    }
+  }
+
   // Handle typing indicators
   const handleTyping = () => {
     if (!socket || !agreementId) return
@@ -195,9 +319,10 @@ export function RealtimeCollaborationWorkspace() {
 
   // Send chat message
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !socket || !agreementId) return
+    if (!newMessage.trim() || !agreementId || isSendingMessage) return
 
     try {
+      setIsSendingMessage(true)
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
@@ -205,23 +330,83 @@ export function RealtimeCollaborationWorkspace() {
       const isPartyA = agreement?.partyAEmail === user?.email
       const senderRole = isPartyA ? 'partyA' : 'partyB'
 
-      await sendChatMessage(token, agreementId, newMessage, senderRole)
-      
-      // Emit real-time message
-      socket.emit('send-message', {
-        agreementId,
+      console.log('📤 Sending message:', { agreementId, message: newMessage, senderRole })
+
+      // Create temporary message for immediate display
+      const tempMessage = {
+        _id: `temp-${Date.now()}`,
         message: newMessage,
         senderId: user?.id,
-        senderName: user?.name,
+        senderName: user?.name || 'You',
         senderRole,
-        timestamp: new Date().toISOString()
-      })
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isTemporary: true
+      }
 
+      // Add message to local state immediately
+      setMessages(prev => [...prev, tempMessage])
+      scrollToBottom()
+
+      // Clear message input immediately
+      const messageText = newMessage
       setNewMessage("")
       setIsTyping(false)
-      socket.emit('user-stopped-typing', { agreementId, userId: user?.id })
+      
+      if (socket) {
+        socket.emit('user-stopped-typing', { agreementId, userId: user?.id })
+      }
+
+      // Send to backend API
+      const response = await sendChatMessage(token, agreementId, messageText, senderRole)
+      // console.log('✅ Message sent to backend:', response)
+
+      // Also emit via Socket.IO for real-time delivery
+      if (socket) {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}')
+        const userId = user?.id || storedUser._id
+        socket.emit('send-message', {
+          _id: response.chatMessage._id,
+          agreementId: agreementId,
+          senderId: userId,
+          senderName: user?.name || storedUser.name || 'You',
+          message: messageText,
+          senderRole: senderRole,
+          createdAt: response.chatMessage.createdAt,
+          updatedAt: response.chatMessage.updatedAt
+        })
+        // console.log('📡 Message emitted via Socket.IO')
+      }
+
+      // Remove temporary message and add real message
+      setMessages(prev => {
+        const withoutTemp = prev.filter(msg => msg._id !== tempMessage._id)
+        return [...withoutTemp, {
+          ...tempMessage,
+          _id: response.chatMessage._id,
+          isTemporary: false
+        }]
+      })
+
+      // Fallback: Refresh messages if real-time doesn't work
+      setTimeout(async () => {
+        try {
+          const messagesData = await getChatMessages(token, agreementId)
+          setMessages(messagesData.messages || [])
+          // console.log('🔄 Messages refreshed from backend')
+        } catch (err) {
+          console.error('Error refreshing messages:', err)
+        }
+      }, 2000)
+      
     } catch (err) {
-      console.error("Error sending message:", err)
+      console.error("❌ Error sending message:", err)
+      // Remove temporary message on error
+      setMessages(prev => prev.filter(msg => !msg.isTemporary))
+      // Restore message on error
+      setNewMessage(newMessage)
+    } finally {
+      setIsSendingMessage(false)
     }
   }
 
@@ -337,6 +522,14 @@ export function RealtimeCollaborationWorkspace() {
                   {onlineUsers.length} online
                 </span>
               </div>
+              {unreadCount > 0 && !isChatOpen && (
+                <div className="flex items-center gap-2 text-orange-600">
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    {unreadCount} new message{unreadCount > 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
               <Button onClick={handleDownloadPDF} variant="outline">
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
@@ -347,10 +540,17 @@ export function RealtimeCollaborationWorkspace() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="clauses" className="space-y-6">
+        <Tabs defaultValue="clauses" className="space-y-6" onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="clauses">Clauses</TabsTrigger>
-            <TabsTrigger value="chat">Chat</TabsTrigger>
+            <TabsTrigger value="chat" className="relative">
+              Chat
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="ml-2 text-xs">
+                  {unreadCount}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           {/* Clauses Tab */}
@@ -529,8 +729,15 @@ export function RealtimeCollaborationWorkspace() {
                     className="flex-1"
                     rows={2}
                   />
-                  <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-                    <Send className="w-4 h-4" />
+                  <Button 
+                    onClick={handleSendMessage} 
+                    disabled={!newMessage.trim() || isSendingMessage}
+                  >
+                    {isSendingMessage ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
                   </Button>
                 </div>
               </CardContent>
