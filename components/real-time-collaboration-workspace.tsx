@@ -204,12 +204,15 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
         if (!prev) return prev
         return {
           ...prev,
-          clauses: prev.clauses.map(clause => 
-            clause._id === data.clauseId 
-              ? { ...clause, ...data.updates }
-              : clause
-          )
+          clauses: data.clauses || prev.clauses
         }
+      })
+      
+      // Show notification for real-time updates
+      toast({
+        title: "Clause Updated",
+        description: "Clause preferences have been updated by another party",
+        variant: "default"
       })
     })
 

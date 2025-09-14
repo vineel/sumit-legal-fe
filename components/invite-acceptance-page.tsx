@@ -26,10 +26,13 @@ interface InviteAcceptancePageProps {
 
 interface InviteDetails {
   agreementId: string
-  inviterName: string
-  inviterEmail: string
-  templateName: string
+  invitedBy: string
+  invitedByEmail: string
+  agreementName: string
+  templateDescription?: string
   effectiveDate: string
+  termDuration?: string
+  jurisdiction?: string
   status: string
 }
 
@@ -252,7 +255,7 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
                 <div>
                   <p className="font-medium">Invited by</p>
                   <p className="text-sm text-muted-foreground">
-                    {inviteDetails?.inviterName} ({inviteDetails?.inviterEmail})
+                    {inviteDetails?.invitedBy} ({inviteDetails?.invitedByEmail})
                   </p>
                 </div>
               </div>
@@ -262,8 +265,13 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
                 <div>
                   <p className="font-medium">Template</p>
                   <p className="text-sm text-muted-foreground">
-                    {inviteDetails?.templateName}
+                    {inviteDetails?.agreementName}
                   </p>
+                  {inviteDetails?.templateDescription && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {inviteDetails.templateDescription}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -272,10 +280,34 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
                 <div>
                   <p className="font-medium">Effective Date</p>
                   <p className="text-sm text-muted-foreground">
-                    {inviteDetails?.effectiveDate}
+                    {inviteDetails?.effectiveDate ? new Date(inviteDetails.effectiveDate).toLocaleDateString() : 'Not specified'}
                   </p>
                 </div>
               </div>
+
+              {inviteDetails?.termDuration && (
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">Term Duration</p>
+                    <p className="text-sm text-muted-foreground">
+                      {inviteDetails.termDuration}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {inviteDetails?.jurisdiction && (
+                <div className="flex items-center gap-3">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">Jurisdiction</p>
+                    <p className="text-sm text-muted-foreground">
+                      {inviteDetails.jurisdiction}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="w-fit">

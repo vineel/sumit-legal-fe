@@ -126,11 +126,28 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
     newSocket.on('clause-updated', (data) => {
       console.log('Clause updated:', data)
       if (data.agreementId === agreementId) {
-        // Update clauses in real-time
-        setClauses(prev => prev.map(clause => {
-          const updatedClause = data.clauses.find((c: any) => c.clauseId.toString() === clause._id)
-          return updatedClause ? { ...clause, ...updatedClause } : clause
-        }))
+        // Update clauses in real-time with the complete clauses array
+        const transformedClauses = data.clauses?.map((clauseItem: any) => ({
+          _id: clauseItem.clauseId._id,
+          name: clauseItem.clauseId.name,
+          description: clauseItem.clauseId.description,
+          category: clauseItem.clauseId.category,
+          required: clauseItem.clauseId.required,
+          status: clauseItem.clauseId.status,
+          partyAPreference: clauseItem.partyAPreference,
+          partyBPreference: clauseItem.partyBPreference,
+          isResolved: clauseItem.partyAPreference && clauseItem.partyBPreference && 
+                     clauseItem.partyAPreference === clauseItem.partyBPreference
+        })) || []
+        
+        setClauses(transformedClauses)
+        
+        // Show notification
+        toast({
+          title: "Clause Updated",
+          description: "Clause preferences have been updated by another party",
+          variant: "default"
+        })
       }
     })
 
