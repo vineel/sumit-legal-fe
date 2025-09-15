@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "build:large": "NODE_OPTIONS='--max-old-space-size=20484096' next build"
   },
   "dependencies": {
     "@hello-pangea/dnd": "latest",
