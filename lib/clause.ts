@@ -34,6 +34,20 @@ export interface Pagination {
   limit: number;
 }
 
+// A lightweight reference to a clause inside an agreement
+export interface ClauseRef {
+  _id: string;
+  name: string;
+  description: string;
+}
+
+// How clauses appear inside agreements
+export interface AgreementClause {
+  clauseId: ClauseRef;  // <-- Not full Clause, just reference
+  partyAPreference: string;
+  partyBPreference: string;
+}
+
 // ✅ Create a new clause
 export async function createClause(payload: ClausePayload): Promise<Clause> {
   const { data } = await api.post("/admin/clause/addclause", payload);

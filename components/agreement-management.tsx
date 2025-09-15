@@ -380,25 +380,20 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {typeof agreement.userid === 'object' ? agreement.userid.name : 'Unknown'}
+                          {agreement.partyAName || 'Unknown'}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {typeof agreement.userid === 'object' ? agreement.userid.email : agreement.userid}
+                          User ID: {agreement.userid}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {agreement.partyBUserId ? 
-                            (typeof agreement.partyBUserId === 'object' ? agreement.partyBUserId.name : 'Registered User') : 
-                            'Email Invite'
-                          }
+                          {agreement.partyBUserId ? 'Registered User' : 'Email Invite'}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {agreement.partyBEmail || 
-                           (typeof agreement.partyBUserId === 'object' ? agreement.partyBUserId.email : agreement.partyBUserId) || 
-                           'Not set'}
+                          {agreement.partyBEmail || 'Not set'}
                         </div>
                       </div>
                     </TableCell>

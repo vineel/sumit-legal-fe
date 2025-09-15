@@ -32,9 +32,22 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { getAgreementById, updateClausePreferences, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF } from "@/lib/agreements"
 import { useAuth } from "@/components/auth-provider"
+import { AgreementClause } from "@/lib/clause";
+
 
 interface AgreementCollaborationWorkspaceProps {
   agreementId: string
+}
+
+// Extended interface that includes all properties used in the component
+interface ExtendedAgreementClause extends AgreementClause {
+  _id: string
+  name: string
+  description: string
+  category: string
+  required?: boolean
+  status?: string
+  isResolved?: boolean
 }
 
 interface Clause {
@@ -69,7 +82,8 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
   const { toast } = useToast()
   
   const [agreement, setAgreement] = useState<any>(null)
-  const [clauses, setClauses] = useState<Clause[]>([])
+  // const [clauses, setClauses] = useState<Clause[]>([])
+  const [clauses, setClauses] = useState<ExtendedAgreementClause[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [loading, setLoading] = useState(true)
@@ -146,7 +160,12 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
           partyAPreference: clauseItem.partyAPreference,
           partyBPreference: clauseItem.partyBPreference,
           isResolved: clauseItem.partyAPreference && clauseItem.partyBPreference && 
-                     clauseItem.partyAPreference === clauseItem.partyBPreference
+                     clauseItem.partyAPreference === clauseItem.partyBPreference,
+          clauseId: {
+            _id: clauseItem.clauseId._id,
+            name: clauseItem.clauseId.name,
+            description: clauseItem.clauseId.description
+          }
         })) || []
         
         setClauses(transformedClauses)
@@ -225,7 +244,7 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
       const data = await getAgreementById(token, agreementId)
       setAgreement(data)
       
-      // Transform clauses from nested structure to flat structure
+      // Transform clauses from nested structure to AgreementClause structure
       const transformedClauses = data.clauses?.map((clauseItem: any) => ({
         _id: clauseItem.clauseId._id,
         name: clauseItem.clauseId.name,
@@ -236,7 +255,12 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
         partyAPreference: clauseItem.partyAPreference,
         partyBPreference: clauseItem.partyBPreference,
         isResolved: clauseItem.partyAPreference && clauseItem.partyBPreference && 
-                   clauseItem.partyAPreference === clauseItem.partyBPreference
+                   clauseItem.partyAPreference === clauseItem.partyBPreference,
+        clauseId: {
+          _id: clauseItem.clauseId._id,
+          name: clauseItem.clauseId.name,
+          description: clauseItem.clauseId.description
+        }
       })) || []
       
       setClauses(transformedClauses)
@@ -265,57 +289,119 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
     }
   }
 
-  const handleClauseUpdate = async (clauseId: string, preference: string) => {
-    try {
-      setSaving(true)
+  // const handleClauseUpdate = async (clauseId: string, preference: string) => {
+  //   try {
+  //     setSaving(true)
       
-      const token = localStorage.getItem("auth_token")
-      if (!token) return
+  //     const token = localStorage.getItem("auth_token")
+  //     if (!token) return
 
-      // Determine which party preference to update based on user role
-      const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
-      const preferenceField = isPartyA ? 'partyAPreference' : 'partyBPreference'
+  //     // Determine which party preference to update based on user role
+  //     const isPartyA = agreement?.userid?.toString() === user?.id?.toString()
+  //     const preferenceField = isPartyA ? 'partyAPreference' : 'partyBPreference'
 
-      const updatedClauses = clauses.map(clause => 
-        clause.clauseId._id === clauseId 
-          ? { ...clause, [preferenceField]: preference }
-          : clause
-      )
+  //     const updatedClauses = clauses.map(clause => 
+  //       clause.clauseId._id === clauseId 
+  //         ? { ...clause, [preferenceField]: preference }
+  //         : clause
+  //     )
 
-      await updateClausePreferences(token, agreementId, updatedClauses.map(clause => ({
-        clauseId: clause.clauseId._id,
-        partyAPreference: clause.partyAPreference,
-        partyBPreference: clause.partyBPreference
-      })))
-      setClauses(updatedClauses)
+  //     await updateClausePreferences(token, agreementId, updatedClauses.map(clause => ({
+  //       clauseId: clause.clauseId._id,
+  //       partyAPreference: clause.partyAPreference,
+  //       partyBPreference: clause.partyBPreference
+  //     })))
+  //     setClauses(updatedClauses)
 
-      // Emit real-time update
-      if (socket) {
-        socket.emit('update-clause', {
-          agreementId,
-          clauseId,
-          preference,
-          userRole: isPartyA ? 'partyA' : 'partyB',
-          clauses: updatedClauses
-        })
-      }
+  //     // Emit real-time update
+  //     if (socket) {
+  //       socket.emit('update-clause', {
+  //         agreementId,
+  //         clauseId,
+  //         preference,
+  //         userRole: isPartyA ? 'partyA' : 'partyB',
+  //         clauses: updatedClauses
+  //       })
+  //     }
 
-      toast({
-        title: "Clause Updated",
-        description: "Your preference has been saved",
-        variant: "default"
-      })
-    } catch (err) {
-      console.error("Error updating clause:", err)
-      toast({
-        title: "Error",
-        description: "Failed to update clause preference",
-        variant: "destructive"
-      })
-    } finally {
-      setSaving(false)
-    }
+  //     toast({
+  //       title: "Clause Updated",
+  //       description: "Your preference has been saved",
+  //       variant: "default"
+  //     })
+  //   } catch (err) {
+  //     console.error("Error updating clause:", err)
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to update clause preference",
+  //       variant: "destructive"
+  //     })
+  //   } finally {
+  //     setSaving(false)
+  //   }
+  // }
+
+const handleClauseUpdate = async (clauseId: string, preference: string) => {
+  try {
+    setSaving(true);
+
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+
+    // Determine which party preference to update based on user role
+    const isPartyA = agreement?.userid?.toString() === user?.id?.toString();
+    const preferenceField: "partyAPreference" | "partyBPreference" = isPartyA
+      ? "partyAPreference"
+      : "partyBPreference";
+
+    // ✅ Safely update clauses using ExtendedAgreementClause type
+    const updatedClauses: ExtendedAgreementClause[] = clauses.map((clause) => {
+      if (!clause.clauseId?._id) return clause; // skip if invalid
+      return clause.clauseId._id === clauseId
+        ? { ...clause, [preferenceField]: preference }
+        : clause;
+    });
+
+    // ✅ Prepare payload for API
+    const payload = updatedClauses
+      .filter((c) => c.clauseId?._id) // only send valid
+      .map((c) => ({
+        clauseId: c.clauseId!._id,
+        partyAPreference: c.partyAPreference,
+        partyBPreference: c.partyBPreference,
+      }));
+
+    await updateClausePreferences(token, agreementId, payload);
+
+    setClauses(updatedClauses);
+
+    // Emit real-time update
+    socket?.emit("update-clause", {
+      agreementId,
+      clauseId,
+      preference,
+      userRole: isPartyA ? "partyA" : "partyB",
+      clauses: updatedClauses,
+    });
+
+    toast({
+      title: "Clause Updated",
+      description: "Your preference has been saved",
+      variant: "default",
+    });
+  } catch (err) {
+    console.error("Error updating clause:", err);
+    toast({
+      title: "Error",
+      description: "Failed to update clause preference",
+      variant: "destructive",
+    });
+  } finally {
+    setSaving(false);
   }
+};
+
+
 
   const handleAddCustomClause = async () => {
     try {
@@ -345,7 +431,7 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
 
       const result = await response.json()
       
-      const newClause: Clause = {
+      const newClause: ExtendedAgreementClause = {
         _id: result.clauseId,
         name: newClauseData.name,
         description: newClauseData.description,
@@ -354,7 +440,12 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
         status: "active",
         partyAPreference: "",
         partyBPreference: "",
-        isResolved: false
+        isResolved: false,
+        clauseId: {
+          _id: result.clauseId,
+          name: newClauseData.name,
+          description: newClauseData.description
+        }
       }
 
       const updatedClauses = [...clauses, newClause]

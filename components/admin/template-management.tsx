@@ -23,6 +23,9 @@ import { useToast } from "@/hooks/use-toast"
 import { getTemplates, createTemplate, updateAdminTemplate, deleteAdminTemplate, Template } from "@/lib/templateApi"
 import { getAdminClauses, Clause } from "@/lib/clause"
 
+
+
+
 export function TemplateManagement() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [clauses, setClauses] = useState<Clause[]>([])
@@ -335,21 +338,34 @@ export function TemplateManagement() {
     console.log("Template data for editing:", template)
     console.log("Extracted clause IDs:", clauseIds)
     
+    // setFormData({
+    //   templatename: template.templatename,
+    //   description: template.description,
+    //   category: template.category || "",
+    //   clauses: clauseIds
+    // })
     setFormData({
-      templatename: template.templatename,
-      description: template.description,
-      category: template.category || "",
-      clauses: clauseIds
-    })
+  templatename: template.templatename || "",
+  description: template.description || "",
+  category: (template as any).category || "",
+  clauses: clauseIds
+})
     setIsEditDialogOpen(true)
   }
 
 
+  // const filteredTemplates = templates.filter(template =>
+  //   template.templatename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //   template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //   (template.category && template.category.toLowerCase().includes(searchTerm.toLowerCase()))
+  // )
   const filteredTemplates = templates.filter(template =>
-    template.templatename.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (template.category && template.category.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  (template.templatename || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+  (template.description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+  (template as any).category?.toLowerCase().includes(searchTerm.toLowerCase())
+
+)
+
 
   if (loading) {
     return (
@@ -407,7 +423,9 @@ export function TemplateManagement() {
                   <CardTitle className="text-lg">{template.templatename}</CardTitle>
                   <CardDescription>{template.description}</CardDescription>
                 </div>
-                <Badge variant="outline">{template.category || "General"}</Badge>
+                {/* <Badge variant="outline">{template.category || "General"}</Badge> */}
+                <Badge variant="outline">{(template as any).category || "General"}</Badge>
+
                 </div>
               </CardHeader>
             

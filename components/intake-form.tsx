@@ -165,7 +165,7 @@ export function IntakeForm({ onComplete }: IntakeFormProps) {
                           {[1, 2, 3, "x"].map((rank) => (
                             <button
                               key={rank}
-                              onClick={() => handleRankingChange(variant, rank)}
+                              onClick={() => handleRankingChange(variant, rank as number | "x")}
                               className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-colors ${
                                 responses[currentClause.clause_type]?.rankings?.[variant] === rank
                                   ? getRankingColor(rank as number | "x")

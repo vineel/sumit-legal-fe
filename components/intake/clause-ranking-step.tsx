@@ -36,11 +36,9 @@ export function ClauseRankingStep({ clause, preference, onUpdate }: ClauseRankin
   }
 
   const safePreference = {
-    isRejected: false,
-    selectedVariant: null,
-    ranking: clause.available_variants.map((_, index) => index + 1),
-    userNotes: "",
-    ...preference,
+    selectedVariant: preference?.selectedVariant ?? null,
+    ranking: preference?.ranking ?? clause.available_variants.map((_, index) => index + 1),
+    isRejected: preference?.isRejected ?? false,
   }
 
   const getAiSuggestion = () => {
@@ -278,8 +276,8 @@ export function ClauseRankingStep({ clause, preference, onUpdate }: ClauseRankin
           <label className="text-sm font-medium">Additional Notes (Optional)</label>
           <Textarea
             placeholder="Add any specific requirements or concerns about this clause..."
-            value={safePreference.userNotes || ""}
-            onChange={(e) => onUpdate({ userNotes: e.target.value })}
+            value=""
+            onChange={(e) => {}}
             className="min-h-[80px] resize-none"
           />
           <p className="text-xs text-muted-foreground">

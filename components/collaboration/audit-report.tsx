@@ -115,7 +115,7 @@ export function AuditReport({ comparisonResults, currentUser, parties }: AuditRe
                             </td>
                             <td className="p-3">
                               <div className="space-y-1 text-sm">
-                                {item.ranking.map((option, idx) => (
+                                {item.ranking.map((option: any, idx: number) => (
                                   <div key={idx} className="flex items-center gap-2">
                                     <Badge variant="outline" className="text-xs">
                                       {idx + 1}

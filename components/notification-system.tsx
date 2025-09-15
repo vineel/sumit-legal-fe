@@ -40,7 +40,8 @@ export function useNotifications() {
 }
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated } = useAuth()
+  const { user } = useAuth()
+  const isAuthenticated = !!user
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [socket, setSocket] = useState<Socket | null>(null)
 
@@ -68,7 +69,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Listen for notifications based on user role
     newSocket.on('notification', (notification: Notification) => {
       // Only show notifications relevant to this user
-      if (notification.userId === user.id || notification.role === user.role || notification.role === 'all') {
+      if (notification.userId === user.id || !notification.userId) {
         setNotifications(prev => [notification, ...prev])
       }
     })

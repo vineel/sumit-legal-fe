@@ -36,6 +36,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { getAgreementById, updateClausePreferences, updateSingleClausePreference, sendChatMessage, getChatMessages, updateAgreementStatus, downloadAgreementPDF, getAIClauseSuggestions } from "@/lib/agreements"
 import { useAuth } from "@/components/auth-provider"
+import { Agreement } from "@/lib/agreements"
 
 interface RealTimeCollaborationWorkspaceProps {
   agreementId: string
@@ -62,34 +63,6 @@ interface Clause {
   }
 }
 
-interface Agreement {
-  _id: string
-  templateId: {
-    _id: string
-    templatename: string
-    description: string
-  }
-  userid: {
-    _id: string
-    name: string
-    email: string
-  }
-  partyBUserId?: {
-    _id: string
-    name: string
-    email: string
-  }
-  partyAEmail?: string
-  partyBEmail?: string
-  status: string
-  clauses: Clause[]
-  partyASignature?: string
-  partyBSignature?: string
-  partyASigned?: boolean
-  partyBSigned?: boolean
-  createdAt: string
-  updatedAt: string
-}
 
 interface ChatMessage {
   _id: string
@@ -217,7 +190,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       console.log("📨 New message received via Socket.IO:", message)
       
       // Check if this is a message from the current user
-      const currentUserId = String(user?._id || user?.id || '')
+      const currentUserId = String(user?.id || '')
       const messageSenderId = String(message.senderId || '')
       const isOwnMessage = currentUserId && messageSenderId && currentUserId === messageSenderId
       
@@ -269,7 +242,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
 
     // Typing indicators
     newSocket.on('user-typing', (data) => {
-      if (String(data.userId) !== String(user?._id || user?.id)) {
+      if (String(data.userId) !== String(user?.id)) {
         setTypingUsers(prev => {
           if (!prev.includes(data.userName)) {
             return [...prev, data.userName]
@@ -280,7 +253,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
     })
 
     newSocket.on('user-stopped-typing', (data) => {
-      if (String(data.userId) !== String(user?._id || user?.id)) {
+      if (String(data.userId) !== String(user?.id)) {
         setTypingUsers(prev => prev.filter(name => name !== data.userName))
       }
     })
@@ -319,7 +292,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       if (isTyping) {
         newSocket.emit('typing-stop', { 
           agreementId, 
-          userId: String(user?._id || user?.id || ''),
+          userId: String(user?.id || ''),
           userName: user?.name || 'Unknown User'
         })
       }
@@ -352,7 +325,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
         if (!token) return
 
         const messages = await getChatMessages(token, agreementId)
-        setChatMessages(messages)
+        setChatMessages(messages.messages || [])
       } catch (error) {
         console.error("Error loading chat messages:", error)
       }
@@ -427,8 +400,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   const userIdStr = userId?.toString()
   
   // Check if user is party A or B - use string comparison for consistency
-  const isPartyA = agreement?.userid?._id?.toString() === userIdStr
-  const isPartyB = agreement?.partyBUserId?._id?.toString() === userIdStr
+  const isPartyA = agreement?.userid?.toString() === userIdStr
+  const isPartyB = agreement?.partyBUserId?.toString() === userIdStr
   const isAuthorized = isPartyA || isPartyB
   
   
@@ -569,8 +542,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       setIsTyping(true)
       socket.emit('typing-start', { 
         agreementId, 
-        userId: String(user?._id || user?.id || ''), 
-        userName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown'))
+        userId: String(user?.id || ''), 
+        userName: user?.name || 'Unknown'
       })
     }
     
@@ -579,8 +552,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       setIsTyping(false)
       socket.emit('typing-stop', { 
         agreementId, 
-        userId: String(user?._id || user?.id || ''),
-        userName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown'))
+        userId: String(user?.id || ''),
+        userName: user?.name || 'Unknown'
       })
     }, 1500) // 1.5 seconds after last keystroke
   }
@@ -591,8 +564,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       setIsTyping(false)
       socket.emit('typing-stop', { 
         agreementId, 
-        userId: String(user?._id || user?.id || ''),
-        userName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown'))
+        userId: String(user?.id || ''),
+        userName: user?.name || 'Unknown'
       })
     }
     if (typingTimeoutRef.current) {
@@ -613,8 +586,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       _id: `temp-${Date.now()}`,
       agreementId: agreementId,
       message: messageText,
-      senderId: String(user?._id || user?.id || ''),
-      senderName: user?.name || (isPartyA ? (agreement?.userid?.name || 'You') : (agreement?.partyBUserId?.name || 'You')),
+      senderId: String(user?.id || ''),
+      senderName: user?.name || 'You',
       senderRole: isPartyA ? 'partyA' : 'partyB',
       createdAt: new Date().toISOString(),
       isSending: true
@@ -639,8 +612,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       const socketMessage = {
         agreementId,
         message: messageText, // Use original message text, not API response
-        senderId: String(user?._id || user?.id || ''),
-        senderName: user?.name || (isPartyA ? (agreement?.userid?.name || 'Unknown') : (agreement?.partyBUserId?.name || 'Unknown')),
+        senderId: String(user?.id || ''),
+        senderName: user?.name || 'Unknown',
         senderRole: isPartyA ? 'partyA' : 'partyB'
       }
       console.log("📤 Emitting Socket.IO message:", socketMessage)
@@ -988,8 +961,12 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
               ← Back
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">{agreement.templateId.templatename}</h1>
-              <p className="text-gray-600">{agreement.templateId.description}</p>
+              <h1 className="text-2xl font-bold">
+                {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : 'Agreement'}
+              </h1>
+              <p className="text-gray-600">
+                Legal Agreement
+              </p>
             </div>
           </div>
           
@@ -1027,7 +1004,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
             </Button>
 
             {/* Download Buttons */}
-            {agreement.status === 'signed' && agreement.partyASigned && agreement.partyBSigned && (
+            {agreement.status === 'signed' && agreement.partyASignature && agreement.partyBSignature && (
               <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1055,7 +1032,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   variant={agreement.status === 'signed' ? 'default' : 'secondary'}
                   className="text-lg px-4 py-2"
                 >
-                  {agreement.status.toUpperCase()}
+                  {(agreement.status || 'draft').toUpperCase()}
                 </Badge>
                 <div className="text-sm text-muted-foreground">
                   Created: {new Date(agreement.createdAt).toLocaleDateString()}
@@ -1069,13 +1046,13 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   <div>
                     <span className="font-medium">Party A (Creator):</span>
                     <p className="text-sm text-muted-foreground">
-                      {agreement.userid?.name || 'Unknown'} ({agreement.userid?.email || 'No email'})
+                      User ID: {agreement.userid || 'Unknown'}
                     </p>
                   </div>
                   <div>
                     <span className="font-medium">Party B (Collaborator):</span>
                     <p className="text-sm text-muted-foreground">
-                      {agreement.partyBUserId?.name || agreement.partyBEmail || 'Not yet joined'}
+                      {agreement.partyBUserId || agreement.partyBEmail || 'Not yet joined'}
                     </p>
                   </div>
                 </div>
@@ -1112,7 +1089,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                       variant="outline"
                       size="sm"
                       onClick={() => setShowAddClause(!showAddClause)}
-                      disabled={agreement?.partyASignature && agreement?.partyBSignature}
+                      disabled={!!(agreement?.partyASignature && agreement?.partyBSignature)}
                       title={agreement?.partyASignature && agreement?.partyBSignature ? 
                         "Cannot add clauses after both parties have signed" : 
                         "Add a custom clause to this agreement"
@@ -1173,7 +1150,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
               )}
 
               {/* Agreement Status Message */}
-              {agreement.partyASigned && agreement.partyBSigned && (
+              {agreement.partyASignature && agreement.partyBSignature && (
                 <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-green-600" />
@@ -1273,7 +1250,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   }
                   className={clause.partyAPreference === "acceptable" ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
                   onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "acceptable")}
-                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA || (agreement.partyASigned && agreement.partyBSigned)}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA || !!(agreement.partyASignature && agreement.partyBSignature)}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
                   {clause.partyAPreference === "acceptable" ? '✓ Accepted' : 'Accept'}
@@ -1287,7 +1264,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   }
                   className={clause.partyAPreference === "unacceptable" ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
                   onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "unacceptable")}
-                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA || (agreement.partyASigned && agreement.partyBSigned)}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyA || !!(agreement.partyASignature && agreement.partyBSignature)}
                 >
                   <XCircle className="w-4 h-4 mr-1" />
                   {clause.partyAPreference === "unacceptable" ? '✗ Rejected' : 'Reject'}
@@ -1336,7 +1313,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   }
                   className={clause.partyBPreference === "acceptable" ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'hover:bg-green-50 border-green-200'}
                   onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "acceptable")}
-                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB || (agreement.partyASigned && agreement.partyBSigned)}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB || !!(agreement.partyASignature && agreement.partyBSignature)}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
                   {clause.partyBPreference === "acceptable" ? '✓ Accepted' : 'Accept'}
@@ -1350,7 +1327,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                   }
                   className={clause.partyBPreference === "unacceptable" ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'hover:bg-red-50 border-red-200 text-red-600'}
                   onClick={() => handleClauseUpdate(clause.clauseId?._id || clause.clauseId, "unacceptable")}
-                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB || (agreement.partyASigned && agreement.partyBSigned)}
+                  disabled={isUpdatingClause === (clause.clauseId?._id || clause.clauseId) || !isPartyB || !!(agreement.partyASignature && agreement.partyBSignature)}
                 >
                   <XCircle className="w-4 h-4 mr-1" />
                   {clause.partyBPreference === "unacceptable" ? '✗ Rejected' : 'Reject'}
@@ -1545,7 +1522,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
               
               {user && Array.isArray(chatMessages) && chatMessages.map((message, index) => {
                 // Ensure user ID is loaded before determining alignment
-                const currentUserId = String(user?._id || user?.id || '')
+                const currentUserId = String(user?.id || '')
                 const messageSenderId = String(message.senderId || '')
                 const isOwnMessage = currentUserId && messageSenderId && currentUserId === messageSenderId
                 const messageTime = message.createdAt || message.timestamp
@@ -1560,8 +1537,8 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
                 // Get real names from agreement
                 const getSenderName = () => {
                   if (message.senderName) return message.senderName
-                  if (isPartyA) return agreement?.userid?.name || 'Party A'
-                  return agreement?.partyBUserId?.name || 'Party B'
+                  if (isPartyA) return 'Party A'
+                  return 'Party B'
                 }
                 
                 

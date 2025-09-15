@@ -28,7 +28,7 @@ export interface User {
   role: string;
   status?: string;
   signature?: {
-    url: string;
+    url?: string;
   };
   address?: {
     street?: string;
@@ -38,9 +38,6 @@ export interface User {
     country?: string;
   };
   photo?: {
-    url?: string;
-  };
-  signature?: {
     url?: string;
   };
 }

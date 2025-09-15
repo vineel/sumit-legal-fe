@@ -9,7 +9,8 @@ import { ArrowLeft, ArrowRight, Home, Eye } from "lucide-react"
 import { ClauseRankingStep } from "./clause-ranking-step"
 import { DocumentPreview } from "./document-preview"
 import { intakeSchema } from "@/lib/intake-schema"
-import { getTemplateById, Template } from "@/lib/user"
+// import { getTemplateById, Template } from "@/lib/user"
+import { getTemplateById, Template } from "@/lib/templateApi"
 import { getAgreementById } from "@/lib/agreements"
 
 export type ClausePreference = {
@@ -55,7 +56,7 @@ export function IntakeFormWizard() {
 
         // Fetch template and agreement data in parallel
         const [templateData, agreementData] = await Promise.all([
-          getTemplateById(token, templateId),
+          getTemplateById(templateId),
           getAgreementById(token, agreementId)
         ])
 
@@ -66,9 +67,9 @@ export function IntakeFormWizard() {
         const initialPreferences: Record<string, ClausePreference> = {}
         if (templateData.clauses && templateData.clauses.length > 0) {
           // Use template clauses if available
-          templateData.clauses.forEach((clauseId, index) => {
-            initialPreferences[clauseId] = {
-              clauseType: clauseId,
+          templateData.clauses.forEach((clause, index) => {
+            initialPreferences[clause._id] = {
+              clauseType: clause._id,
               selectedVariant: null,
               ranking: [index + 1],
               isRejected: false,
@@ -99,12 +100,16 @@ export function IntakeFormWizard() {
 
   // Use template clauses if available, otherwise fallback to intake schema
   const availableClauses = template?.clauses && template.clauses.length > 0 
-    ? template.clauses.map((clauseId, index) => ({
-        clause_type: clauseId,
+    ? template.clauses.map((clause, index) => ({
+        clause_type: clause._id,
+        question_text: clause.name || `Clause ${index + 1}`,
+        field_required: true,
+        input_required_for_drafting: true,
         available_variants: [
-          { id: `${clauseId}-variant-1`, name: "Standard", description: "Standard clause variant" },
-          { id: `${clauseId}-variant-2`, name: "Custom", description: "Custom clause variant" }
-        ]
+          "Standard",
+          "Custom"
+        ],
+        additional_notes: clause.description || ""
       }))
     : intakeSchema
 

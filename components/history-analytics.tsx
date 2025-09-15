@@ -18,7 +18,7 @@ import {
   BarChart3,
   PieChart
 } from "lucide-react"
-import { getAgreements, downloadAgreementPDF } from "@/lib/agreements"
+import { getAgreements, downloadAgreementPDF, Agreement } from "@/lib/agreements"
 
 interface AgreementHistory {
   _id: string
@@ -55,7 +55,7 @@ interface Analytics {
 }
 
 export function HistoryAnalytics() {
-  const [agreements, setAgreements] = useState<AgreementHistory[]>([])
+  const [agreements, setAgreements] = useState<Agreement[]>([])
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("history")
@@ -77,7 +77,7 @@ export function HistoryAnalytics() {
       const analyticsData: Analytics = {
         totalAgreements: agreementsData.length,
         completedAgreements: agreementsData.filter(a => a.status === 'signed').length,
-        inProgressAgreements: agreementsData.filter(a => ['pending', 'in-progress'].includes(a.status)).length,
+        inProgressAgreements: agreementsData.filter(a => a.status && ['pending', 'in-progress'].includes(a.status)).length,
         averageNegotiationTime: calculateAverageNegotiationTime(agreementsData),
         mostCommonConflicts: calculateMostCommonConflicts(agreementsData),
         monthlyStats: calculateMonthlyStats(agreementsData)
@@ -90,7 +90,7 @@ export function HistoryAnalytics() {
     }
   }
 
-  const calculateAverageNegotiationTime = (agreements: AgreementHistory[]): number => {
+  const calculateAverageNegotiationTime = (agreements: Agreement[]): number => {
     const completedAgreements = agreements.filter(a => a.status === 'signed' && a.signedDate)
     if (completedAgreements.length === 0) return 0
 
@@ -103,13 +103,13 @@ export function HistoryAnalytics() {
     return totalTime / completedAgreements.length / (1000 * 60 * 60 * 24) // Convert to days
   }
 
-  const calculateMostCommonConflicts = (agreements: AgreementHistory[]): Array<{ clause: string; count: number }> => {
+  const calculateMostCommonConflicts = (agreements: Agreement[]): Array<{ clause: string; count: number }> => {
     const conflictCount: Record<string, number> = {}
     
     agreements.forEach(agreement => {
       agreement.clauses.forEach(clause => {
         if (clause.partyAPreference !== clause.partyBPreference) {
-          conflictCount[clause.title] = (conflictCount[clause.title] || 0) + 1
+          conflictCount[clause.clauseId] = (conflictCount[clause.clauseId] || 0) + 1
         }
       })
     })
@@ -120,7 +120,7 @@ export function HistoryAnalytics() {
       .slice(0, 5)
   }
 
-  const calculateMonthlyStats = (agreements: AgreementHistory[]): Array<{ month: string; agreements: number; completed: number }> => {
+  const calculateMonthlyStats = (agreements: Agreement[]): Array<{ month: string; agreements: number; completed: number }> => {
     const monthlyData: Record<string, { agreements: number; completed: number }> = {}
     
     agreements.forEach(agreement => {
@@ -159,8 +159,7 @@ export function HistoryAnalytics() {
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
-      const downloadUrl = await downloadAgreementPDF(token, agreementId)
-      window.open(downloadUrl, '_blank')
+      await downloadAgreementPDF(token, agreementId)
     } catch (error) {
       console.error("Error downloading PDF:", error)
     }
@@ -216,15 +215,15 @@ export function HistoryAnalytics() {
                       <div className="flex items-start justify-between">
                         <div>
                           <CardTitle className="text-lg">
-                            {agreement.partyAName} ↔ {agreement.partyBName}
+                            {agreement.partyAName} ↔ {agreement.partyBEmail || 'Email Invite'}
                           </CardTitle>
                           <CardDescription>
                             Agreement ID: {agreement._id}
                           </CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className={getStatusColor(agreement.status)}>
-                            {agreement.status}
+                          <Badge className={getStatusColor(agreement.status || 'draft')}>
+                            {agreement.status || 'draft'}
                           </Badge>
                           <Button
                             onClick={() => handleDownloadPDF(agreement._id)}

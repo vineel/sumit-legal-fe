@@ -103,10 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await signupAPI({ name, email, password })
       
       // Don't auto-login if account is pending approval
-      if (data.status === 'pending_approval') {
+      if ((data as any).status === 'pending_approval') {
         return { 
           success: true, 
-          message: data.message,
+          message: (data as any).message,
           status: 'pending_approval'
         }
       }
