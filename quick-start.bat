@@ -39,7 +39,7 @@ echo EMAIL_USER=your-email@gmail.com
 echo EMAIL_PASS=your-app-password
 echo.
 echo # Frontend URL
-echo FRONTEND_URL=http://localhost:3001
+echo FRONTEND_URL=http://localhost:3000
 echo.
 echo # Server
 echo PORT=5000
