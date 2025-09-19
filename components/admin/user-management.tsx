@@ -19,8 +19,7 @@ import {
   Edit,
   Shield,
   UserCheck,
-  UserX,
-  RefreshCw
+  UserX
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { getAllUsers, approveUser, rejectUser, updateUser, User } from "@/lib/admin"
@@ -241,15 +240,9 @@ export function UserManagement() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
-          <p className="text-muted-foreground">Manage all platform users and their access</p>
-        </div>
-        <Button onClick={fetchUsers} variant="outline">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold">User Management</h1>
+        <p className="text-muted-foreground">Manage all platform users and their access</p>
       </div>
 
       {/* Stats Cards */}

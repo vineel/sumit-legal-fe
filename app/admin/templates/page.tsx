@@ -1,10 +1,10 @@
 import { ProtectedRoute } from "@/components/protected-route"
-import { TemplateManagement } from "@/components/admin/template-management"
+import { TemplateManagementNew } from "@/components/admin/template-management-new"
 
 export default function AdminTemplatesPage() {
   return (
     <ProtectedRoute requiredRole="admin">
-      <TemplateManagement />
+      <TemplateManagementNew />
     </ProtectedRoute>
   )
 }

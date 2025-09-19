@@ -17,6 +17,7 @@ export interface DashboardStatusData {
   adminUsers: number
   totalClauses: number
   totalTemplates: number
+  totalAgreements: number
 }
 
 

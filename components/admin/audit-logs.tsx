@@ -110,8 +110,8 @@ export function AuditLogs() {
           >
             <option value="all">All Actions</option>
             <option value="login">Login/Logout</option>
-            <option value="session">Session</option>
-            <option value="clause">Clause</option>
+            <option value="template">Template</option>
+            <option value="agreement">Agreement</option>
             <option value="user">User</option>
           </select>
         </div>
@@ -131,14 +131,12 @@ export function AuditLogs() {
                     <th className="text-left p-3 font-medium">User</th>
                     <th className="text-left p-3 font-medium">Action</th>
                     <th className="text-left p-3 font-medium">Details</th>
-                    <th className="text-left p-3 font-medium">Session</th>
-                    <th className="text-left p-3 font-medium">IP Address</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center">
+                      <td colSpan={4} className="p-8 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
                           <span>Loading activity logs...</span>
@@ -147,7 +145,7 @@ export function AuditLogs() {
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center">
+                      <td colSpan={4} className="p-8 text-center">
                         <div className="text-red-600">
                           <p>{error}</p>
                           <Button 
@@ -163,7 +161,7 @@ export function AuditLogs() {
                     </tr>
                   ) : filteredLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={4} className="p-8 text-center text-muted-foreground">
                         No activity logs found
                       </td>
                     </tr>
@@ -198,12 +196,6 @@ export function AuditLogs() {
                           </td>
                           <td className="p-3">
                             <span className="text-sm">{details}</span>
-                          </td>
-                          <td className="p-3">
-                            <span className="text-muted-foreground text-sm">-</span>
-                          </td>
-                          <td className="p-3">
-                            <span className="text-muted-foreground text-sm">-</span>
                           </td>
                         </tr>
                       )

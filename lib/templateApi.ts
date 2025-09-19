@@ -16,12 +16,24 @@ export interface Clause {
   }[];
 }
 
+export interface ClauseVariant {
+  variant_label: string;
+  text: string;
+}
+
+export interface ClauseType {
+  clause_name: string;
+  variants: ClauseVariant[];
+}
+
 export interface Template {
   clauseIds: never[];
   _id: string;
   userid: string;
   templatename: string;
+  agreement_type?: string; // Added for new structure
   description?: string;
+  category?: string; // Added for new structure
   active: boolean;
   version: string;
   templatefile: string;
@@ -29,7 +41,9 @@ export interface Template {
   updatedAt: string;
   clauseUsageCount?: number;
   isCustom?: boolean;
-  clauses?: Clause[]; // 👈 add populated clauses
+  clauses?: ClauseType[]; // Updated to new structure
+  usageCount?: number; // Added for stats
+  clauseCount?: number; // Added for stats
 }
 
 // Add new template (with file upload)
@@ -90,7 +104,7 @@ export const createTemplate = async (token: string, templateData: {
   templatename: string;
   description: string;
   category: string;
-  clauses: string[];
+  clauses: ClauseType[];
 }): Promise<{ message: string; template: Template }> => {
   const response = await api.post<{ message: string; template: Template }>("/admin/templates", templateData, {
     headers: { Authorization: `Bearer ${token}` }
@@ -103,7 +117,7 @@ export const updateAdminTemplate = async (token: string, templateId: string, tem
   templatename: string;
   description: string;
   category: string;
-  clauses: string[];
+  clauses: ClauseType[];
 }): Promise<{ message: string; template: Template }> => {
   const response = await api.put<{ message: string; template: Template }>(`/admin/templates/${templateId}`, templateData, {
     headers: { Authorization: `Bearer ${token}` }
