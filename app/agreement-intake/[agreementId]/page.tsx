@@ -7,14 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { 
   FileText, 
   ArrowLeft,
   Loader2,
   CheckCircle,
   AlertCircle,
-  Mail,
   GripVertical,
   Check,
   X
@@ -47,6 +45,26 @@ interface Template {
   global_questions: GlobalQuestion[]
 }
 
+interface Agreement {
+  _id: string
+  templateId: Template
+  initiatorId: {
+    _id: string
+    name: string
+    email: string
+  }
+  invitedUserId: {
+    _id: string
+    name: string
+    email: string
+  }
+  status: string
+  initiatorData?: {
+    intakeAnswers: Record<string, string>
+    selectedClauses: any[]
+  }
+}
+
 interface SelectedClause {
   clause_name: string
   variant: ClauseVariant
@@ -54,27 +72,27 @@ interface SelectedClause {
   order: number
 }
 
-export default function TemplateViewerPage() {
+export default function AgreementIntakePage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
   
+  const [agreement, setAgreement] = useState<Agreement | null>(null)
   const [template, setTemplate] = useState<Template | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [intakeAnswers, setIntakeAnswers] = useState<Record<string, string>>({})
   const [selectedClauses, setSelectedClauses] = useState<SelectedClause[]>([])
   const [clauseVariantsOrder, setClauseVariantsOrder] = useState<Record<string, Array<ClauseVariant & { order: number }>>>({})
-  const [inviteEmail, setInviteEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const templateId = params.id as string
+  const agreementId = params.agreementId as string
 
   useEffect(() => {
-    fetchTemplate()
-  }, [templateId])
+    fetchAgreement()
+  }, [agreementId])
 
-  const fetchTemplate = async () => {
+  const fetchAgreement = async () => {
     try {
       setLoading(true)
       const token = localStorage.getItem('auth_token')
@@ -82,7 +100,9 @@ export default function TemplateViewerPage() {
         throw new Error('No authentication token found')
       }
 
-      const response = await fetch(`http://localhost:5000/api/admin/template/single/${templateId}`, {
+      console.log('🔍 Fetching agreement:', agreementId)
+
+      const response = await fetch(`http://localhost:5000/api/agreement/${agreementId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -90,18 +110,22 @@ export default function TemplateViewerPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch template')
+        const errorText = await response.text()
+        console.error('❌ Failed to fetch agreement:', errorText)
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
       if (data.success) {
-        setTemplate(data.template)
-        initializeClauseVariantsOrder(data.template.clauses)
+        console.log('✅ Agreement fetched successfully:', data.agreement)
+        setAgreement(data.agreement)
+        setTemplate(data.agreement.templateId)
+        initializeClauseVariantsOrder(data.agreement.templateId.clauses)
       } else {
-        throw new Error(data.message || 'Failed to fetch template')
+        throw new Error(data.message || 'Failed to fetch agreement')
       }
     } catch (error: any) {
-      console.error('Error fetching template:', error)
+      console.error('Error fetching agreement:', error)
       setError(error.message)
     } finally {
       setLoading(false)
@@ -196,13 +220,13 @@ export default function TemplateViewerPage() {
     return true
   }
 
-  const handleSendInvite = async () => {
+  const handleCompleteIntake = async () => {
     if (!validateForm()) return
 
-    if (!template) {
+    if (!agreement) {
       toast({
-        title: "Template Error",
-        description: "Template not loaded. Please try again.",
+        title: "Agreement Error",
+        description: "Agreement not loaded. Please try again.",
         variant: "destructive"
       })
       return
@@ -215,48 +239,46 @@ export default function TemplateViewerPage() {
         throw new Error('No authentication token found')
       }
 
-      console.log('🚀 Creating agreement with template:', template._id)
+      console.log('📝 Completing intake for agreement:', agreementId)
 
-      const initiatorData = {
+      const invitedUserData = {
         intakeAnswers: intakeAnswers,
         selectedClauses: selectedClauses,
         clauseVariantsOrder: clauseVariantsOrder
       }
 
-      const response = await fetch('http://localhost:5000/api/agreement/create', {
-        method: 'POST',
+      const response = await fetch(`http://localhost:5000/api/agreement/${agreementId}/update`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          templateId: template._id,
-          inviteEmail: inviteEmail,
-          initiatorData: initiatorData
+          invitedUserData: invitedUserData
         })
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('❌ Agreement creation failed:', errorData)
-        throw new Error(errorData.message || 'Failed to create agreement')
+        console.error('❌ Agreement update failed:', errorData)
+        throw new Error(errorData.message || 'Failed to complete intake')
       }
 
       const result = await response.json()
-      console.log('✅ Agreement created successfully:', result)
+      console.log('✅ Intake completed successfully:', result)
       
       toast({
-        title: "Invite Sent!",
-        description: `Agreement created and invite sent to ${inviteEmail}`,
+        title: "Intake Completed!",
+        description: "Your intake form has been submitted successfully.",
       })
 
-      // Redirect to dashboard
-      router.push('/dashboard')
+      // Redirect to agreement view
+      router.push(`/agreement-view/${agreementId}`)
     } catch (error: any) {
-      console.error('Error sending invite:', error)
+      console.error('Error completing intake:', error)
       toast({
         title: "Error",
-        description: `Failed to send invite: ${error.message}`,
+        description: `Failed to complete intake: ${error.message}`,
         variant: "destructive"
       })
     } finally {
@@ -358,20 +380,20 @@ export default function TemplateViewerPage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading template...</p>
+          <p>Loading agreement...</p>
         </div>
       </div>
     )
   }
 
-  if (error || !template) {
+  if (error || !agreement || !template) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Template Not Found</h2>
+          <h2 className="text-xl font-semibold mb-2">Agreement Not Found</h2>
           <p className="text-muted-foreground mb-4">
-            {error || 'The template you are looking for does not exist or has been removed.'}
+            {error || 'The agreement you are looking for does not exist or you are not authorized to view it.'}
           </p>
           <Button onClick={() => router.push('/dashboard')} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -390,6 +412,14 @@ export default function TemplateViewerPage() {
           <div>
             <h1 className="text-3xl font-bold">{template.templatename}</h1>
             <p className="text-muted-foreground mt-2">{template.description}</p>
+            <div className="flex items-center gap-4 mt-4">
+              <Badge variant="outline">
+                Invited by: {agreement.initiatorId.name}
+              </Badge>
+              <Badge variant="secondary">
+                Status: {agreement.status}
+              </Badge>
+            </div>
           </div>
           <Button onClick={() => router.push('/dashboard')} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -465,28 +495,18 @@ export default function TemplateViewerPage() {
               </Card>
             ))}
 
-            {/* Send Invite Section */}
+            {/* Complete Intake Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Mail className="w-5 h-5" />
-                  Send Invite
+                  <CheckCircle className="w-5 h-5" />
+                  Complete Your Intake
                 </CardTitle>
                 <CardDescription>
-                  Enter the email address of the party you want to invite to this agreement.
+                  Review your selections and complete your intake form.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Email Address</label>
-                  <Input
-                    type="email"
-                    placeholder="Enter email address..."
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                  />
-                </div>
-                
                 {/* Progress Indicator */}
                 <div className="bg-muted/50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -506,16 +526,16 @@ export default function TemplateViewerPage() {
                 </div>
 
                 <Button 
-                  onClick={handleSendInvite}
+                  onClick={handleCompleteIntake}
                   className="w-full"
-                  disabled={!inviteEmail.trim() || selectedClauses.length !== (template.clauses?.reduce((sum, clause) => sum + clause.variants.length, 0) || 0) || submitting}
+                  disabled={selectedClauses.length !== (template.clauses?.reduce((sum, clause) => sum + clause.variants.length, 0) || 0) || submitting}
                 >
                   {submitting ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
-                    <Mail className="w-4 h-4 mr-2" />
+                    <CheckCircle className="w-4 h-4 mr-2" />
                   )}
-                  Send Invite
+                  Complete Intake
                 </Button>
               </CardContent>
             </Card>

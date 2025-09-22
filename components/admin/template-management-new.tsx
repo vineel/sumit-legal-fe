@@ -23,7 +23,7 @@ import {
   Eye
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getTemplates, createTemplate, updateAdminTemplate, deleteAdminTemplate, Template, ClauseType } from "@/lib/templateApi"
+import { getTemplates, createTemplate, updateAdminTemplate, Template, ClauseType } from "@/lib/templateApi"
 import { useRouter } from "next/navigation"
 
 // New types for the nested structure
@@ -298,57 +298,6 @@ export function TemplateManagementNew() {
     }
   }
 
-  const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm("Are you sure you want to delete this template? This action cannot be undone.")) return
-
-    try {
-      setActionLoading(templateId)
-      
-      const token = localStorage.getItem("auth_token")
-      if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "No authentication token found. Please log in again.",
-          variant: "destructive"
-        })
-        return
-      }
-
-      await deleteAdminTemplate(token, templateId)
-      
-      toast({
-        title: "Success",
-        description: "Template deleted successfully",
-        variant: "default"
-      })
-      
-      fetchTemplates()
-    } catch (err: any) {
-      console.error("Error deleting template:", err)
-      
-      let errorMessage = "Failed to delete template"
-      
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message
-      } else if (err.response?.status === 401) {
-        errorMessage = "Authentication failed. Please log in again."
-      } else if (err.response?.status === 403) {
-        errorMessage = "You don't have permission to delete templates"
-      } else if (err.response?.status === 404) {
-        errorMessage = "Template not found"
-      } else if (err.response?.status >= 500) {
-        errorMessage = "Server error. Please try again later."
-      }
-      
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      })
-    } finally {
-      setActionLoading(null)
-    }
-  }
 
   const openEditDialog = (template: NewTemplate) => {
     setEditingTemplate(template)
@@ -597,18 +546,6 @@ export function TemplateManagementNew() {
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={() => handleDeleteTemplate(template._id!)}
-                  disabled={actionLoading === template._id}
-                >
-                  {actionLoading === template._id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
                 </Button>
               </div>
             </CardContent>
