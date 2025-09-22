@@ -17,6 +17,7 @@ import {
   Mail
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { AgreementChat } from "@/components/agreement-chat"
 
 interface ClauseVariant {
   variant_label: string
@@ -80,11 +81,22 @@ export default function AgreementViewPage() {
   const [agreement, setAgreement] = useState<Agreement | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const agreementId = params.agreementId as string
 
   useEffect(() => {
     fetchAgreement()
+    // Get current user ID from token
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setCurrentUserId(payload.id)
+      } catch (error) {
+        console.error('Error parsing token:', error)
+      }
+    }
   }, [agreementId])
 
   const fetchAgreement = async () => {
@@ -342,6 +354,19 @@ export default function AgreementViewPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Chat Component - Floating */}
+        {currentUserId && agreement && (
+          <AgreementChat 
+            agreementId={agreementId}
+            currentUserId={currentUserId}
+            otherPartyName={
+              currentUserId === agreement.initiatorId._id 
+                ? agreement.invitedUserId.name 
+                : agreement.initiatorId.name
+            }
+          />
         )}
 
       </div>
