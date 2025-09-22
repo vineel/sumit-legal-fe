@@ -1,4 +1,4 @@
-import { InviteAcceptancePage } from "@/components/invite-acceptance-page"
+import { redirect } from "next/navigation"
 
 interface InvitePageProps {
   params: Promise<{
@@ -7,6 +7,6 @@ interface InvitePageProps {
 }
 
 export default async function InvitePage({ params }: InvitePageProps) {
-  const { token } = await params
-  return <InviteAcceptancePage inviteToken={token} />
+  // Redirect to dashboard as invite system is disabled
+  redirect('/dashboard')
 }

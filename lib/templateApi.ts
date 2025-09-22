@@ -26,6 +26,11 @@ export interface ClauseType {
   variants: ClauseVariant[];
 }
 
+export interface GlobalQuestion {
+  question: string;
+  required: boolean;
+}
+
 export interface Template {
   clauseIds: never[];
   _id: string;
@@ -42,6 +47,7 @@ export interface Template {
   clauseUsageCount?: number;
   isCustom?: boolean;
   clauses?: ClauseType[]; // Updated to new structure
+  global_questions?: GlobalQuestion[]; // Added for global questions
   usageCount?: number; // Added for stats
   clauseCount?: number; // Added for stats
 }
@@ -105,6 +111,7 @@ export const createTemplate = async (token: string, templateData: {
   description: string;
   category: string;
   clauses: ClauseType[];
+  global_questions: GlobalQuestion[];
 }): Promise<{ message: string; template: Template }> => {
   const response = await api.post<{ message: string; template: Template }>("/admin/templates", templateData, {
     headers: { Authorization: `Bearer ${token}` }
@@ -118,6 +125,7 @@ export const updateAdminTemplate = async (token: string, templateId: string, tem
   description: string;
   category: string;
   clauses: ClauseType[];
+  global_questions: GlobalQuestion[];
 }): Promise<{ message: string; template: Template }> => {
   const response = await api.put<{ message: string; template: Template }>(`/admin/templates/${templateId}`, templateData, {
     headers: { Authorization: `Bearer ${token}` }

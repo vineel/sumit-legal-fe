@@ -32,6 +32,11 @@ interface ClauseVariant {
   text: string
 }
 
+interface GlobalQuestion {
+  question: string
+  required: boolean
+}
+
 // Use the ClauseType from the API
 type NewTemplate = Template
 
@@ -52,7 +57,8 @@ export function TemplateManagementNew() {
     agreement_type: "",
     description: "",
     category: "",
-    clauses: []
+    clauses: [],
+    global_questions: []
   })
 
   // Clause management state
@@ -153,6 +159,34 @@ export function TemplateManagementNew() {
     setFormData({ ...formData, clauses: updatedClauses })
   }
 
+  // Global questions management
+  const addGlobalQuestion = () => {
+    const newQuestion: GlobalQuestion = {
+      question: "",
+      required: false
+    }
+    setFormData({
+      ...formData,
+      global_questions: [...(formData.global_questions || []), newQuestion]
+    })
+  }
+
+  const removeGlobalQuestion = (index: number) => {
+    if (!confirm("Are you sure you want to delete this question?")) {
+      return
+    }
+    setFormData({
+      ...formData,
+      global_questions: (formData.global_questions || []).filter((_, i) => i !== index)
+    })
+  }
+
+  const updateGlobalQuestion = (index: number, field: keyof GlobalQuestion, value: any) => {
+    const updatedQuestions = [...(formData.global_questions || [])]
+    updatedQuestions[index] = { ...updatedQuestions[index], [field]: value }
+    setFormData({ ...formData, global_questions: updatedQuestions })
+  }
+
 
   const handleCreateTemplate = async () => {
     // Validation
@@ -222,7 +256,8 @@ export function TemplateManagementNew() {
         templatename: formData.agreement_type?.trim() || "",
         description: formData.description?.trim() || "",
         category: formData.category?.trim() || "General",
-        clauses: formData.clauses // Send the new nested structure
+        clauses: formData.clauses, // Send the new nested structure
+        global_questions: formData.global_questions || []
       }
 
       await createTemplate(token, templateData)
@@ -234,7 +269,7 @@ export function TemplateManagementNew() {
       })
       
       setIsCreateDialogOpen(false)
-      setFormData({ agreement_type: "", description: "", category: "", clauses: [] })
+      setFormData({ agreement_type: "", description: "", category: "", clauses: [], global_questions: [] })
       fetchTemplates()
     } catch (err: any) {
       console.error("Error creating template:", err)
@@ -323,12 +358,14 @@ export function TemplateManagementNew() {
     const description = template.description || ""
     const category = template.category || ""
     const clauses = template.clauses || []
+    const globalQuestions = (template as any).global_questions || []
     
     setFormData({
       agreement_type: agreementType,
       description: description,
       category: category,
-      clauses: clauses
+      clauses: clauses,
+      global_questions: globalQuestions
     })
     setIsEditDialogOpen(true)
   }
@@ -408,7 +445,8 @@ export function TemplateManagementNew() {
         templatename: formData.agreement_type?.trim() || "",
         description: formData.description?.trim() || "",
         category: formData.category?.trim() || "General",
-        clauses: formData.clauses // Send the new nested structure
+        clauses: formData.clauses, // Send the new nested structure
+        global_questions: formData.global_questions || []
       }
 
       await updateAdminTemplate(token, editingTemplate._id!, templateData)
@@ -421,7 +459,7 @@ export function TemplateManagementNew() {
       
       setIsEditDialogOpen(false)
       setEditingTemplate(null)
-      setFormData({ agreement_type: "", description: "", category: "", clauses: [] })
+      setFormData({ agreement_type: "", description: "", category: "", clauses: [], global_questions: [] })
       fetchTemplates()
     } catch (err: any) {
       console.error("Error updating template:", err)
@@ -483,7 +521,7 @@ export function TemplateManagementNew() {
           <p className="text-muted-foreground">Create and manage document templates</p>
         </div>
         <Button onClick={() => {
-          setFormData({ agreement_type: "", description: "", category: "", clauses: [] })
+          setFormData({ agreement_type: "", description: "", category: "", clauses: [], global_questions: [] })
           setIsCreateDialogOpen(true)
         }}>
           <Plus className="w-4 h-4 mr-2" />
@@ -592,7 +630,7 @@ export function TemplateManagementNew() {
           </p>
           {!searchTerm && (
             <Button onClick={() => {
-              setFormData({ agreement_type: "", description: "", category: "", clauses: [] })
+              setFormData({ agreement_type: "", description: "", category: "", clauses: [], global_questions: [] })
               setIsCreateDialogOpen(true)
             }}>
               <Plus className="w-4 h-4 mr-2" />
@@ -609,7 +647,7 @@ export function TemplateManagementNew() {
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsCreateDialogOpen(false)
-              setFormData({ agreement_type: "", description: "", category: "", clauses: [] })
+              setFormData({ agreement_type: "", description: "", category: "", clauses: [], global_questions: [] })
             }
           }}
         >
@@ -657,6 +695,71 @@ export function TemplateManagementNew() {
                 </div>
               </div>
 
+              {/* Global Questions Section */}
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <div className="mb-4">
+                  <div>
+                    <h3 className="font-semibold text-purple-900">❓ Global Questions</h3>
+                    <p className="text-sm text-purple-700">Add questions that users will answer before creating agreements</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {(formData.global_questions || []).map((question, questionIndex) => (
+                    <Card key={questionIndex} className="border-2 border-purple-300 bg-white">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="flex-1">
+                              <label className="text-sm font-medium text-purple-800 mb-2 block">Question</label>
+                              <Input
+                                value={question.question}
+                                onChange={(e) => updateGlobalQuestion(questionIndex, "question", e.target.value)}
+                                placeholder="Enter question text"
+                                className="font-medium"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <label className="flex items-center gap-2 text-sm text-purple-800">
+                              <input
+                                type="checkbox"
+                                checked={question.required}
+                                onChange={(e) => updateGlobalQuestion(questionIndex, "required", e.target.checked)}
+                                className="rounded"
+                              />
+                              Required
+                            </label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeGlobalQuestion(questionIndex)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Add Question Button */}
+                <div className="flex justify-center pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={addGlobalQuestion}
+                    className="bg-purple-50 border-2 border-purple-300 text-purple-700 hover:bg-purple-100 hover:border-purple-400 hover:text-purple-800 font-medium shadow-sm"
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Add Question
+                  </Button>
+                </div>
+              </div>
 
               {/* Clause Types Section */}
               <div className="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -787,7 +890,7 @@ export function TemplateManagementNew() {
                   className="flex-1"
                   onClick={() => {
                     setIsCreateDialogOpen(false)
-                    setFormData({ agreement_type: "", description: "", category: "", clauses: [] })
+                    setFormData({ agreement_type: "", description: "", category: "", clauses: [], global_questions: [] })
                   }}
                 >
                   Cancel
@@ -818,7 +921,7 @@ export function TemplateManagementNew() {
             if (e.target === e.currentTarget) {
               setIsEditDialogOpen(false)
               setEditingTemplate(null)
-              setFormData({ agreement_type: "", description: "", category: "", clauses: [] })
+              setFormData({ agreement_type: "", description: "", category: "", clauses: [], global_questions: [] })
             }
           }}
         >
@@ -863,6 +966,72 @@ export function TemplateManagementNew() {
                     rows={3}
                     className="mt-1"
                   />
+                </div>
+              </div>
+
+              {/* Global Questions Section */}
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <div className="mb-4">
+                  <div>
+                    <h3 className="font-semibold text-purple-900">❓ Global Questions</h3>
+                    <p className="text-sm text-purple-700">Add questions that users will answer before creating agreements</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {(formData.global_questions || []).map((question, questionIndex) => (
+                    <Card key={questionIndex} className="border-2 border-purple-300 bg-white">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="flex-1">
+                              <label className="text-sm font-medium text-purple-800 mb-2 block">Question</label>
+                              <Input
+                                value={question.question}
+                                onChange={(e) => updateGlobalQuestion(questionIndex, "question", e.target.value)}
+                                placeholder="Enter question text"
+                                className="font-medium"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <label className="flex items-center gap-2 text-sm text-purple-800">
+                              <input
+                                type="checkbox"
+                                checked={question.required}
+                                onChange={(e) => updateGlobalQuestion(questionIndex, "required", e.target.checked)}
+                                className="rounded"
+                              />
+                              Required
+                            </label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeGlobalQuestion(questionIndex)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Add Question Button */}
+                <div className="flex justify-center pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={addGlobalQuestion}
+                    className="bg-purple-50 border-2 border-purple-300 text-purple-700 hover:bg-purple-100 hover:border-purple-400 hover:text-purple-800 font-medium shadow-sm"
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Add Question
+                  </Button>
                 </div>
               </div>
 
@@ -996,7 +1165,7 @@ export function TemplateManagementNew() {
                   onClick={() => {
                     setIsEditDialogOpen(false)
                     setEditingTemplate(null)
-                    setFormData({ agreement_type: "", description: "", category: "", clauses: [] })
+                    setFormData({ agreement_type: "", description: "", category: "", clauses: [], global_questions: [] })
                   }}
                 >
                   Cancel

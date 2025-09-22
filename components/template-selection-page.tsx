@@ -138,12 +138,13 @@ export function TemplateSelectionPage() {
       const agreementData = {
         templateId: selectedTemplate._id,
         clauses: selectedTemplate.clauses ? 
-          selectedTemplate.clauses.map(clause => {
+          selectedTemplate.clauses.map((clause, index) => {
             // Handle both string IDs and populated clause objects
             if (typeof clause === 'string') {
               return clause
             } else if (clause && typeof clause === 'object') {
-              return clause._id || ''
+              // For new template structure, use clause_name as identifier
+              return clause.clause_name || `clause_${index}`
             }
             return ''
           }).filter(id => id !== '') : [],
@@ -433,14 +434,14 @@ export function TemplateSelectionPage() {
                       // Handle both string IDs and populated clause objects
                       const clauseData = typeof clause === 'string' ? null : clause;
                       
-                      // Handle clause data
-                      const displayName = clauseData?.name || `Clause ${index + 1}`;
-                      const displayDescription = clauseData?.description || "Clause details will be loaded in the agreement";
-                      const displayCategory = clauseData?.category || 'General';
-                      const displayStatus = clauseData?.status || 'active';
+                      // Handle clause data - for new template structure
+                      const displayName = clauseData?.clause_name || `Clause ${index + 1}`;
+                      const displayDescription = "Clause details will be loaded in the agreement";
+                      const displayCategory = 'General';
+                      const displayStatus = 'active';
                       
                       return (
-                        <div key={clauseData?._id || index} className="border rounded-lg p-4">
+                        <div key={clauseData?.clause_name || index} className="border rounded-lg p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <h4 className="font-medium">
@@ -457,9 +458,6 @@ export function TemplateSelectionPage() {
                                   <Badge className={displayStatus === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                                     {displayStatus}
                                   </Badge>
-                                  {clauseData.required && (
-                                    <Badge className="bg-blue-100 text-blue-800">Required</Badge>
-                                  )}
                                 </>
                               )}
                             </div>

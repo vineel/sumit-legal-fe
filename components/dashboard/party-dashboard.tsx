@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { User as UserIcon, LogOut, UserCircle, FileText, Users } from "lucide-react"
 import Link from "next/link"
-import { SimpleAgreementManagement } from "@/components/simple-agreement-management"
 // import { NotificationDropdown } from "@/components/notification-dropdown"
 
 export function PartyDashboard() {
@@ -75,7 +74,7 @@ export function PartyDashboard() {
               <CardContent className="p-6 text-center">
                 <FileText className="w-8 h-8 mx-auto mb-2 text-primary" />
                 <h3 className="font-semibold mb-1">Create Agreement</h3>
-                <p className="text-sm text-muted-foreground">Start a new legal agreement</p>
+                <p className="text-sm text-muted-foreground">Choose from available templates</p>
               </CardContent>
             </Card>
             
@@ -96,8 +95,13 @@ export function PartyDashboard() {
             </Card>
           </div>
 
-          {/* Agreements Management */}
-          <SimpleAgreementManagement userRole="party" />
+          {/* Agreements Management - Disabled */}
+          <div className="bg-muted/50 rounded-lg p-8 text-center">
+            <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2 text-muted-foreground">Agreement Management</h3>
+            <p className="text-muted-foreground mb-4">The agreement management system is currently being updated with a new process.</p>
+            <p className="text-sm text-muted-foreground">Please check back soon for the new streamlined experience.</p>
+          </div>
         </div>
       </main>
     </div>
