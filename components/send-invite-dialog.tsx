@@ -90,7 +90,7 @@ export function SendInviteDialog({
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/send`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/agreement/send`
       console.log("API URL:", apiUrl)
       console.log("Request payload:", { agreementId, inviteeEmail: email })
 

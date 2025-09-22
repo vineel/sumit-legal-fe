@@ -97,7 +97,7 @@ export default function AgreementViewPage() {
 
       console.log('🔍 Fetching agreement:', agreementId)
 
-      const response = await fetch(`http://localhost:5000/api/agreement/${agreementId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -125,7 +125,7 @@ export default function AgreementViewPage() {
     }
   }
 
-  const getTrafficLightIcon = (status: string) => {
+  const getAgreementStatusIcon = (status: string) => {
     switch (status) {
       case 'green':
         return <CheckCircle className="w-5 h-5 text-green-500" />
@@ -138,7 +138,7 @@ export default function AgreementViewPage() {
     }
   }
 
-  const getTrafficLightColor = (status: string) => {
+  const getAgreementStatusColor = (status: string) => {
     switch (status) {
       case 'green':
         return 'bg-green-100 border-green-300 text-green-800'
@@ -154,7 +154,7 @@ export default function AgreementViewPage() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'green':
-        return 'Perfect Match'
+        return 'Agreement Match'
       case 'yellow':
         return 'Partial Match'
       case 'red':
@@ -224,15 +224,15 @@ export default function AgreementViewPage() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
-          {/* Traffic Light Summary */}
+          {/* Agreement Compatibility Summary */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                Traffic Light Summary
+                Agreement Compatibility Analysis
               </CardTitle>
               <CardDescription>
-                Compatibility analysis between both parties' preferences
+                Analysis of how well both parties' preferences align
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -240,7 +240,7 @@ export default function AgreementViewPage() {
                 <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
                   <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-green-700">{greenCount}</div>
-                  <div className="text-sm text-green-600">Perfect Matches</div>
+                  <div className="text-sm text-green-600">Agreement Matches</div>
                 </div>
                 <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                   <Clock className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
@@ -300,13 +300,13 @@ export default function AgreementViewPage() {
             <CardContent>
               <div className="space-y-4">
                 {matchingResults.map((result, index) => (
-                  <div key={index} className={`p-4 rounded-lg border ${getTrafficLightColor(result.matchStatus)}`}>
+                  <div key={index} className={`p-4 rounded-lg border ${getAgreementStatusColor(result.matchStatus)}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          {getTrafficLightIcon(result.matchStatus)}
+                          {getAgreementStatusIcon(result.matchStatus)}
                           <h4 className="font-medium">{result.clause_name}</h4>
-                          <Badge variant="outline" className={getTrafficLightColor(result.matchStatus)}>
+                          <Badge variant="outline" className={getAgreementStatusColor(result.matchStatus)}>
                             {getStatusText(result.matchStatus)}
                           </Badge>
                         </div>

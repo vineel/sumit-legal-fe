@@ -69,7 +69,7 @@ export function ActiveAgreements() {
 
       console.log('🔍 Fetching user agreements')
 
-      const response = await fetch('http://localhost:5000/api/agreement/user/agreements', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/user/agreements`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

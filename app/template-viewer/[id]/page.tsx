@@ -82,7 +82,7 @@ export default function TemplateViewerPage() {
         throw new Error('No authentication token found')
       }
 
-      const response = await fetch(`http://localhost:5000/api/admin/template/single/${templateId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/template/single/${templateId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -223,7 +223,7 @@ export default function TemplateViewerPage() {
         clauseVariantsOrder: clauseVariantsOrder
       }
 
-      const response = await fetch('http://localhost:5000/api/agreement/create', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/create`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

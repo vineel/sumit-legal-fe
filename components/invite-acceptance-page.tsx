@@ -57,7 +57,7 @@ export function InviteAcceptancePage({ inviteToken }: InviteAcceptancePageProps)
       setLoading(true)
       setError(null)
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/invite/${inviteToken}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/invite/${inviteToken}`)
       const data = await response.json()
       
       if (!response.ok) {

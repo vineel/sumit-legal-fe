@@ -49,7 +49,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!isAuthenticated || !user) return
 
-    const newSocket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000", {
+    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL, {
       transports: ['websocket', 'polling']
     })
     setSocket(newSocket)

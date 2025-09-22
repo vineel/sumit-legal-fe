@@ -60,7 +60,7 @@ export function UserTemplateSelection() {
       }
       
       console.log('Fetching templates from backend server')
-      const response = await fetch('http://localhost:5000/api/admin/templates', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/templates`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -87,7 +87,7 @@ export function UserTemplateSelection() {
       console.error('Error fetching templates:', error)
       toast({
         title: "Error",
-        description: `Failed to load templates: ${error.message}`,
+        description: `Failed to load templates: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       })
     } finally {

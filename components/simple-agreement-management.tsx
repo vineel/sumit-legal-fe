@@ -70,7 +70,7 @@ export function SimpleAgreementManagement({ userRole }: SimpleAgreementManagemen
       }
 
       console.log("Fetching agreements...")
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/allagrements`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/allagrements`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -125,7 +125,7 @@ export function SimpleAgreementManagement({ userRole }: SimpleAgreementManagemen
         return
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/status`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +178,7 @@ export function SimpleAgreementManagement({ userRole }: SimpleAgreementManagemen
         return
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/generate-pdf`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}/generate-pdf`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

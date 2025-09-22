@@ -129,7 +129,7 @@ export function AgreementCollaborationWorkspace({ agreementId }: AgreementCollab
   }, [isChatOpen])
 
   const initializeSocket = () => {
-    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000', {
+    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL, {
       auth: {
         token: localStorage.getItem("auth_token")
       }
@@ -536,7 +536,7 @@ const handleClauseUpdate = async (clauseId: string, preference: string) => {
       const clause = clauses.find(c => c._id === clauseId)
       if (!clause) return
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/generate-clause-suggestion`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/generate-clause-suggestion`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -585,7 +585,7 @@ const handleClauseUpdate = async (clauseId: string, preference: string) => {
       const formData = new FormData()
       formData.append('signature', file)
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/user/upload-signature`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/upload-signature`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -643,7 +643,7 @@ const handleClauseUpdate = async (clauseId: string, preference: string) => {
       const signatureData = user?.signature?.url || signature
 
       // Call sign agreement API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/agreement/${agreementId}/sign`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}/sign`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -700,7 +700,7 @@ const handleClauseUpdate = async (clauseId: string, preference: string) => {
       if (!token) return
 
       // Generate PDF first
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/agreement/${agreementId}/generate-pdf`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}/generate-pdf`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -744,7 +744,7 @@ const handleClauseUpdate = async (clauseId: string, preference: string) => {
       if (!token) return
 
       // Generate DOC first
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/agreement/${agreementId}/generate-doc`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}/generate-doc`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`

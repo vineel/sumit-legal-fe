@@ -102,7 +102,7 @@ export default function AgreementIntakePage() {
 
       console.log('🔍 Fetching agreement:', agreementId)
 
-      const response = await fetch(`http://localhost:5000/api/agreement/${agreementId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -247,7 +247,7 @@ export default function AgreementIntakePage() {
         clauseVariantsOrder: clauseVariantsOrder
       }
 
-      const response = await fetch(`http://localhost:5000/api/agreement/${agreementId}/update`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}/update`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -53,7 +53,7 @@ export default function TemplatesPage() {
         throw new Error('No authentication token found')
       }
 
-      const response = await fetch('http://localhost:5000/api/admin/templates', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/templates`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

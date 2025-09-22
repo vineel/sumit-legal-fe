@@ -119,7 +119,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
   // Initialize socket connection
   useEffect(() => {
     // Socket.IO needs the base server URL, not the API URL
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')
     console.log("🔌 Connecting to Socket.IO server:", baseUrl)
     
     const newSocket = io(baseUrl, {
@@ -647,7 +647,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       const formData = new FormData()
       formData.append('signature', signatureFile)
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/user/upload-signature`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/upload-signature`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -751,7 +751,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       }
 
       // Use the proper signature endpoint instead of status update
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/sign`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}/sign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -803,7 +803,7 @@ export function RealTimeCollaborationWorkspace({ agreementId }: RealTimeCollabor
       if (!token) return
 
       // Call backend API to add custom clause
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/custom-clause`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/custom-clause`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
