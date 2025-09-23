@@ -135,39 +135,6 @@ export async function getChatMessages(
   return response.data;
 }
 
-// --- Download Agreement PDF (Admin) ---
-export async function downloadAgreementPDF(
-  token: string,
-  agreementId: string
-): Promise<void> {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/download-pdf`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to download PDF');
-    }
-
-    // Create blob and download
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `agreement-${agreementId}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  } catch (error: any) {
-    console.error('Error downloading PDF:', error);
-    throw error;
-  }
-}
 
 // --- Generate Agreement PDF (Regular Users) ---
 export async function generateAgreementPDF(
@@ -328,5 +295,37 @@ export async function signAgreement(token: string, agreementId: string): Promise
   } catch (error: any) {
     console.error('Error signing agreement:', error);
     throw new Error(error.response?.data?.message || 'Failed to sign agreement');
+  }
+}
+
+// --- Download Agreement PDF ---
+export async function downloadAgreementPDF(token: string, agreementId: string): Promise<void> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/agreement/${agreementId}/download-pdf`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to download PDF');
+    }
+
+    // Create blob and download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `agreement-${agreementId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    console.error('Error downloading agreement PDF:', error);
+    throw error;
   }
 }
