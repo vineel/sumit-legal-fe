@@ -63,7 +63,7 @@ const mockClauseVariants: ClauseVariant[] = [
     content: "Each party anticipates disclosing certain confidential or proprietary information...",
     category: "Nature of NDA",
     lastModified: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2),
-    createdBy: "admin@legalcollab.com",
+    createdBy: "admin@ibdcontracting.com",
   },
   {
     id: "2",
@@ -71,7 +71,7 @@ const mockClauseVariants: ClauseVariant[] = [
     content: "Confidential Information refers to any and all information, data, materials...",
     category: "Definitions",
     lastModified: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
-    createdBy: "admin@legalcollab.com",
+    createdBy: "admin@ibdcontracting.com",
   },
 ]
 

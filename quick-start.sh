@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 LegalCollab Platform - Quick Start Setup"
+echo "🚀 IBD Contracting Platform - Quick Start Setup"
 echo "=============================================="
 
 # Check if Node.js is installed

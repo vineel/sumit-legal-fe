@@ -1,5 +1,5 @@
 @echo off
-echo 🚀 LegalCollab Platform - Quick Start Setup
+echo 🚀 IBD Contracting Platform - Quick Start Setup
 echo ==============================================
 
 REM Check if Node.js is installed

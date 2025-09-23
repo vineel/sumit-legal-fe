@@ -26,7 +26,7 @@ export function PartyDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div>
-              <h1 className="text-xl font-heading font-semibold">Legal Collaboration Platform </h1>
+              <h1 className="text-xl font-heading font-semibold">IBD Contracting Platform </h1>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Welcome, {user?.name}</span>
@@ -67,7 +67,7 @@ export function PartyDashboard() {
           {/* Welcome Section */}
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.name}!</h1>
-            <p className="text-muted-foreground">Manage your legal agreements and collaborations</p>
+            <p className="text-muted-foreground">Manage your contract agreements and collaborations</p>
           </div>
 
           {/* Quick Actions */}

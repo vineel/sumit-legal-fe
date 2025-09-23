@@ -12,10 +12,10 @@ export default function PortalEntryPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-heading font-bold text-foreground mb-4">
-            LegalCollab
+            IBD Contracting
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            AI-Assisted Legal Collaboration Platform for Streamlined Contract Negotiation and Document Generation
+            AI-Assisted Contract Collaboration Platform for Streamlined Contract Negotiation and Document Generation
           </p>
         </div>
 
@@ -23,9 +23,9 @@ export default function PortalEntryPage() {
         <div className="max-w-4xl mx-auto mb-12">
           <Card className="bg-card/50 backdrop-blur-sm border-2">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-heading">About LegalCollab</CardTitle>
+              <CardTitle className="text-2xl font-heading">About IBD Contracting</CardTitle>
               <CardDescription className="text-base">
-                Revolutionizing legal document collaboration with intelligent AI assistance
+                Revolutionizing contract document collaboration with intelligent AI assistance
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -75,7 +75,7 @@ export default function PortalEntryPage() {
               <div className="bg-muted/50 rounded-lg p-4 text-center">
                 <Globe className="w-8 h-8 text-accent mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  Trusted by legal professionals worldwide for efficient contract management and collaboration
+                  Trusted by professionals worldwide for efficient contract management and collaboration
                 </p>
               </div>
             </CardContent>
@@ -98,7 +98,7 @@ export default function PortalEntryPage() {
                   </div>
                   <CardTitle className="text-2xl font-heading text-foreground">User Portal</CardTitle>
                   <CardDescription className="text-base">
-                    Access your legal collaboration workspace
+                    Access your contract collaboration workspace
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="text-center">
@@ -145,11 +145,11 @@ export default function PortalEntryPage() {
 
         {/* Footer */}
         <div className="text-center mt-12 text-sm text-muted-foreground">
-          <p>© 2025LegalCollab. All rights reserved.</p>
+          <p>© 2025 IBD Contracting. All rights reserved.</p>
           <p className="mt-2">
             Need help? Contact our support team at{" "}
-            <a href="mailto:support@legalcollab.com" className="text-accent hover:underline">
-              support@legalcollab.com
+            <a href="mailto:support@ibdcontracting.com" className="text-accent hover:underline">
+              support@ibdcontracting.com
             </a>
           </p>
         </div>

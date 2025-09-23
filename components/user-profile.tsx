@@ -216,7 +216,7 @@ export function UserProfile() {
                 Back to Dashboard
               </Button>
               <div>
-                <h1 className="text-xl font-heading font-semibold">Legal Collaboration Platform</h1>
+                <h1 className="text-xl font-heading font-semibold">IBD Contracting Platform</h1>
               </div>
             </div>
             <div className="flex items-center gap-4">

@@ -1,7 +1,7 @@
-# LegalCollab Platform - Complete User Guide & Technical Specification
+# IBD Contracting Platform - Complete User Guide & Technical Specification
 
 ## 🏢 Project Overview
-**LegalCollab** is an AI-assisted legal document collaboration platform that streamlines NDA creation and negotiation between two parties through intelligent clause matching, real-time collaboration, and automated conflict resolution.
+**IBD Contracting** is an AI-assisted legal document collaboration platform that streamlines NDA creation and negotiation between two parties through intelligent clause matching, real-time collaboration, and automated conflict resolution.
 
 ---
 

@@ -20,8 +20,8 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: "LegalCollab - AI-Assisted Contract Negotiation",
-  description: "Professional legal collaboration platform for AI-assisted contract negotiation and document generation",
+  title: "IBD Contracting - AI-Assisted Contract Negotiation",
+  description: "Professional contract collaboration platform for AI-assisted contract negotiation and document generation",
 }
 
 export default function RootLayout({

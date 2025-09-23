@@ -71,7 +71,7 @@ export function SignupForm() {
           </Link>
         </div>
         <CardTitle className="font-heading text-2xl">Create Account</CardTitle>
-        <CardDescription>Join the legal collaboration platform</CardDescription>
+        <CardDescription>Join the IBD Contracting platform</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

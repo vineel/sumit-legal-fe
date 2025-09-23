@@ -221,7 +221,7 @@ useEffect(() => {
         <div className="mb-8">
           <h2 className="text-2xl font-heading font-bold text-foreground mb-2">System Overview</h2>
           <p className="text-muted-foreground">
-            Comprehensive management and analytics for your legal collaboration platform
+            Comprehensive management and analytics for your IBD Contracting platform
           </p>
         </div>
 

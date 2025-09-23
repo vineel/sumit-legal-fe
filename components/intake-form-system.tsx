@@ -59,7 +59,7 @@ export function IntakeFormSystem() {
               <Scale className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-heading font-bold text-sidebar-foreground">LegalCollab</h1>
+              <h1 className="text-xl font-heading font-bold text-sidebar-foreground">IBD Contracting</h1>
               <p className="text-sm text-sidebar-foreground/70">AI Contract Platform</p>
             </div>
           </div>
@@ -137,7 +137,7 @@ function WelcomeView({
         <div className="mb-8">
           <h1 className="text-4xl font-heading font-bold text-foreground mb-4">AI-Assisted Contract Negotiation</h1>
           <p className="text-xl text-muted-foreground">
-            Streamline legal document collaboration with intelligent matching and real-time resolution
+            Streamline contract document collaboration with intelligent matching and real-time resolution
           </p>
         </div>
 

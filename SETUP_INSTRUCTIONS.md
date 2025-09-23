@@ -1,4 +1,4 @@
-# 🚀 LegalCollab Platform - Complete Setup Instructions
+# 🚀 IBD Contracting Platform - Complete Setup Instructions
 
 ## 📋 **What's Been Implemented**
 
