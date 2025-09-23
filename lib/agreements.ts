@@ -5,23 +5,47 @@ export type AgreementStatus = "draft" | "in-progress" | "resolved" | "exported" 
 
 export interface Agreement {
   _id: string;
-  userid: string;
-  partyAName?: string;
-  partyBUserId?: string | null;
-  partyBEmail?: string | null;
-  templateId: string | { _id: string; templatename: string };
-  clauses: {
-    clauseId: string;
-    partyAPreference: string;
-    partyBPreference: string;
-  }[];
-  status?: AgreementStatus;
-  effectiveDate: string;
-  termDuration?: string;
-  jurisdiction?: string;
-  signedDate?: string;
-  partyASignature?: string;
-  partyBSignature?: string;
+  templateId: {
+    _id: string;
+    templatename: string;
+    description?: string;
+  };
+  initiatorId: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  invitedUserId: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  status: string;
+  initiatorData?: {
+    intakeAnswers: Record<string, string>;
+    selectedClauses: any[];
+    clauseVariantsOrder?: Record<string, any[]>;
+  };
+  invitedUserData?: {
+    intakeAnswers: Record<string, string>;
+    selectedClauses: any[];
+    clauseVariantsOrder?: Record<string, any[]>;
+  };
+  matchingResults?: Array<{
+    matchStatus: 'green' | 'yellow' | 'red';
+  }>;
+  signatures?: {
+    initiatorSignature: {
+      signed: boolean;
+      signedAt?: string;
+      signatureUrl?: string;
+    };
+    invitedUserSignature: {
+      signed: boolean;
+      signedAt?: string;
+      signatureUrl?: string;
+    };
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -192,10 +216,10 @@ export async function acceptInvitation(
 
 // --- Get All Agreements ---
 export async function getAgreements(token: string): Promise<Agreement[]> {
-  const response = await api.get("/agreement/allagrements", {
+  const response = await api.get("/admin/agreements", {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return response.data;
+  return response.data.agreements;
 }
 
 // --- Get Agreement by ID ---

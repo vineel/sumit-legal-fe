@@ -80,7 +80,13 @@ export function PartyDashboard() {
               </CardContent>
             </Card>
             
-            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/dashboard#agreements'}>
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
+              // Scroll to the Active Agreements section
+              const agreementsSection = document.getElementById('agreements-section');
+              if (agreementsSection) {
+                agreementsSection.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}>
               <CardContent className="p-6 text-center">
                 <Users className="w-8 h-8 mx-auto mb-2 text-primary" />
                 <h3 className="font-semibold mb-1">Active Agreements</h3>
@@ -101,7 +107,9 @@ export function PartyDashboard() {
           <PendingInvites />
 
           {/* Active Agreements */}
-          <ActiveAgreements />
+          <div id="agreements-section">
+            <ActiveAgreements />
+          </div>
         </div>
       </main>
     </div>

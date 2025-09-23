@@ -12,9 +12,12 @@ import {
   CheckCircle,
   AlertCircle,
   Eye,
-  Loader2
+  Loader2,
+  Download,
+  Trash2
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { downloadAgreementPDF } from "@/lib/agreements"
 
 interface Agreement {
   _id: string
@@ -43,6 +46,18 @@ interface Agreement {
   matchingResults?: Array<{
     matchStatus: 'green' | 'yellow' | 'red'
   }>
+  signatures?: {
+    initiatorSignature: {
+      signed: boolean
+      signedAt?: string
+      signatureUrl?: string
+    }
+    invitedUserSignature: {
+      signed: boolean
+      signedAt?: string
+      signatureUrl?: string
+    }
+  }
   createdAt: string
   updatedAt: string
 }
@@ -54,9 +69,20 @@ export function ActiveAgreements() {
   const [agreements, setAgreements] = useState<Agreement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAgreements()
+    // Get current user ID from token
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setCurrentUserId(payload.id)
+      } catch (error) {
+        console.error('Error parsing token:', error)
+      }
+    }
   }, [])
 
   const fetchAgreements = async () => {
@@ -113,6 +139,95 @@ export function ActiveAgreements() {
     router.push(`/agreement-view/${agreementId}`)
   }
 
+  const handleDownloadPDF = async (agreementId: string) => {
+    try {
+      const token = localStorage.getItem('auth_token')
+      if (!token) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to download the PDF.",
+          variant: "destructive"
+        })
+        return
+      }
+
+      toast({
+        title: "Downloading PDF",
+        description: "Preparing your agreement PDF...",
+      })
+
+      await downloadAgreementPDF(token, agreementId)
+      
+      toast({
+        title: "PDF Downloaded",
+        description: "Your agreement PDF has been downloaded successfully.",
+      })
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error)
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to download the PDF. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteAgreement = async (agreementId: string, agreementName: string) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the agreement "${agreementName}"?\n\nThis action cannot be undone and will permanently remove the agreement for both parties.`
+    )
+    
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token')
+      if (!token) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to delete the agreement.",
+          variant: "destructive"
+        })
+        return
+      }
+
+      toast({
+        title: "Deleting Agreement",
+        description: "Removing the agreement...",
+      })
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to delete agreement')
+      }
+
+      // Remove the agreement from the local state
+      setAgreements(prev => prev.filter(agreement => agreement._id !== agreementId))
+      
+      toast({
+        title: "Agreement Deleted",
+        description: "The agreement has been successfully deleted.",
+      })
+    } catch (error: any) {
+      console.error('Error deleting agreement:', error)
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete the agreement. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -159,6 +274,16 @@ export function ActiveAgreements() {
     const initiatorCompleted = (agreement.initiatorData?.selectedClauses?.length || 0) > 0
     const invitedUserCompleted = (agreement.invitedUserData?.selectedClauses?.length || 0) > 0
     return initiatorCompleted && invitedUserCompleted
+  }
+
+  const isAgreementFullySigned = (agreement: Agreement) => {
+    return agreement.status === 'signed' && 
+           agreement.signatures?.initiatorSignature?.signed && 
+           agreement.signatures?.invitedUserSignature?.signed
+  }
+
+  const isUserInitiator = (agreement: Agreement) => {
+    return currentUserId && agreement.initiatorId._id === currentUserId
   }
 
   const formatDate = (dateString: string) => {
@@ -298,18 +423,52 @@ export function ActiveAgreements() {
                       <span>Waiting for both parties to complete intake</span>
                     </div>
                   )}
+                  
+                  {/* Signed Status */}
+                  {isAgreementFullySigned(agreement) && (
+                    <div className="flex items-center gap-2 text-xs text-green-600 mt-2">
+                      <CheckCircle className="w-3 h-3" />
+                      <span>Agreement fully signed by both parties - Cannot be deleted</span>
+                    </div>
+                  )}
                 </div>
                 
-                <Button 
-                  onClick={() => handleViewAgreement(agreement._id, agreement)}
-                  size="sm"
-                  className="ml-4"
-                  disabled={!isAgreementReady(agreement)}
-                  variant={isAgreementReady(agreement) ? "default" : "outline"}
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  {isAgreementReady(agreement) ? "View Agreement" : "Not Ready"}
-                </Button>
+                <div className="flex items-center gap-2 ml-4">
+                  <Button 
+                    onClick={() => handleViewAgreement(agreement._id, agreement)}
+                    size="sm"
+                    disabled={!isAgreementReady(agreement)}
+                    variant={isAgreementReady(agreement) ? "default" : "outline"}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    {isAgreementReady(agreement) ? "View Agreement" : "Not Ready"}
+                  </Button>
+                  
+                  {/* PDF Download Button - Only show for fully signed agreements */}
+                  {isAgreementFullySigned(agreement) && (
+                    <Button 
+                      onClick={() => handleDownloadPDF(agreement._id)}
+                      size="sm"
+                      variant="outline"
+                      className="bg-green-50 hover:bg-green-100 text-green-700 hover:text-green-800 border-green-200"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      PDF
+                    </Button>
+                  )}
+                  
+                  {/* Delete Button - Only show for initiator and only if not signed */}
+                  {isUserInitiator(agreement) && !isAgreementFullySigned(agreement) && (
+                    <Button 
+                      onClick={() => handleDeleteAgreement(agreement._id, agreement.templateId.templatename)}
+                      size="sm"
+                      variant="outline"
+                      className="bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 border-red-200"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )

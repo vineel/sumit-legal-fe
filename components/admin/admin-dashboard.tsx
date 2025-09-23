@@ -286,7 +286,7 @@ useEffect(() => {
                   <p className="text-2xl font-bold">
                     {status?.totalAgreements || 0}
                   </p>
-                  <p className="text-sm text-muted-foreground">Agreements</p>
+                  <p className="text-sm text-muted-foreground">Signed Agreements</p>
                 </div>
               </div>
             </CardContent>

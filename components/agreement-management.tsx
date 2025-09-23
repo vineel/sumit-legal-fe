@@ -268,8 +268,8 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
 
   const canDownloadPDF = (agreement: Agreement) => {
     return agreement.status === 'signed' && 
-           agreement.partyASignature && 
-           agreement.partyBSignature
+           agreement.signatures?.initiatorSignature?.signed && 
+           agreement.signatures?.invitedUserSignature?.signed
   }
 
   const canStartAgreement = (agreement: Agreement) => {
@@ -361,7 +361,6 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                   <TableHead>Status</TableHead>
                   <TableHead>Effective Date</TableHead>
                   <TableHead>Signatures</TableHead>
-                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -370,7 +369,7 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : 'Custom Agreement'}
+                          {agreement.templateId.templatename}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           ID: {agreement._id.slice(-8)}
@@ -380,20 +379,20 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {agreement.partyAName || 'Unknown'}
+                          {agreement.initiatorId.name}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          User ID: {agreement.userid}
+                          {agreement.initiatorId.email}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {agreement.partyBUserId ? 'Registered User' : 'Email Invite'}
+                          {agreement.invitedUserId.name}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {agreement.partyBEmail || 'Not set'}
+                          {agreement.invitedUserId.email}
                         </div>
                       </div>
                     </TableCell>
@@ -404,43 +403,18 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {agreement.effectiveDate ? new Date(agreement.effectiveDate).toLocaleDateString() : 'Not set'}
+                      {agreement.createdAt ? new Date(agreement.createdAt).toLocaleDateString() : 'Not set'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className={`flex items-center gap-1 ${agreement.partyASignature ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`flex items-center gap-1 ${agreement.signatures?.initiatorSignature?.signed ? 'text-green-600' : 'text-gray-400'}`}>
                           <CheckCircle className="w-4 h-4" />
-                          <span className="text-xs">A</span>
+                          <span className="text-xs">Initiator</span>
                         </div>
-                        <div className={`flex items-center gap-1 ${agreement.partyBSignature ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`flex items-center gap-1 ${agreement.signatures?.invitedUserSignature?.signed ? 'text-green-600' : 'text-gray-400'}`}>
                           <CheckCircle className="w-4 h-4" />
-                          <span className="text-xs">B</span>
+                          <span className="text-xs">Invited</span>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {/* <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/collaboration?agreementId=${agreement._id}`)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button> */}
-                        {agreement.status === 'signed' && (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => handleDownloadPDF(agreement._id)}
-                            disabled={actionLoading === agreement._id}
-                          >
-                            {actionLoading === agreement._id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Download className="w-4 h-4" />
-                            )}
-                          </Button>
-                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -458,11 +432,11 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <CardTitle className="text-lg">
-                      {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : 'Custom Agreement'}
+                      {agreement.templateId.templatename}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-2">
                       <Users className="w-4 h-4" />
-                      {agreement.partyBEmail || 'No email provided'}
+                      {agreement.invitedUserId.email}
                     </CardDescription>
                   </div>
                   <Badge className={`${getStatusColor(agreement.status || 'draft')} flex items-center gap-1`}>
@@ -475,24 +449,14 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
               <CardContent className="space-y-4">
                 {/* Agreement Details */}
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  {agreement.effectiveDate && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>Effective: {new Date(agreement.effectiveDate).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                  {agreement.jurisdiction && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      <span>{agreement.jurisdiction}</span>
-                    </div>
-                  )}
-                  {agreement.termDuration && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      <span>Duration: {agreement.termDuration}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>Created: {new Date(agreement.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    <span>Parties: {agreement.initiatorId.name} & {agreement.invitedUserId.name}</span>
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -565,11 +529,11 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                   </div>
 
                   {/* Download PDF */}
-                  {agreement.status === 'signed' && (
+                  {canDownloadPDF(agreement) && (
                     <Button 
                       variant="default" 
                       size="sm" 
-                      className="w-full"
+                      className="w-full bg-green-50 hover:bg-green-100 text-green-700 hover:text-green-800 border-green-200"
                       onClick={() => handleDownloadPDF(agreement._id)}
                       disabled={actionLoading === agreement._id}
                     >
@@ -583,7 +547,7 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                   )}
 
                   {/* Show message if PDF not ready */}
-                  {agreement.status !== 'signed' && (
+                  {!canDownloadPDF(agreement) && (
                     <div className="text-xs text-muted-foreground text-center p-2 bg-muted rounded">
                       PDF available after both parties sign
                     </div>

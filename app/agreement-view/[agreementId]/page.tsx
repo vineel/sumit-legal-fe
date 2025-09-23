@@ -394,6 +394,27 @@ export default function AgreementViewPage() {
   const yellowCount = matchingResults.filter(r => r.matchStatus === 'yellow').length
   const redCount = matchingResults.filter(r => r.matchStatus === 'red').length
 
+  // Group matching results by clause name
+  const groupedMatchingResults = matchingResults.reduce((acc, result) => {
+    if (!acc[result.clause_name]) {
+      acc[result.clause_name] = []
+    }
+    acc[result.clause_name].push(result)
+    return acc
+  }, {} as Record<string, MatchingResult[]>)
+
+  // Get overall status for a clause based on its variants
+  const getOverallClauseStatus = (variants: MatchingResult[]) => {
+    const hasGreen = variants.some(v => v.matchStatus === 'green')
+    const hasRed = variants.some(v => v.matchStatus === 'red')
+    const hasYellow = variants.some(v => v.matchStatus === 'yellow')
+    
+    if (hasGreen && !hasRed) return 'green'
+    if (hasRed) return 'red'
+    if (hasYellow) return 'yellow'
+    return 'green' // default
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -466,84 +487,55 @@ export default function AgreementViewPage() {
           </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Agreement Compatibility Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Agreement Compatibility Analysis
-              </CardTitle>
-              <CardDescription>
-                Analysis of how well both parties' preferences align
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-                  <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-green-700">{greenCount}</div>
-                  <div className="text-sm text-green-600">Agreement Matches</div>
-                </div>
-                <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <Clock className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-yellow-700">{yellowCount}</div>
-                  <div className="text-sm text-yellow-600">Partial Matches</div>
-                </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
-                  <XCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-red-700">{redCount}</div>
-                  <div className="text-sm text-red-600">Conflicts</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Agreement Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Agreement Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Initiator</span>
-                  <Badge variant="outline">{agreement.initiatorId.name}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Invited User</span>
-                  <Badge variant="outline">{agreement.invitedUserId.name}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Status</span>
-                  <Badge variant={agreement.status === 'active' ? 'default' : 'secondary'}>
-                    {agreement.status}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Matching Results */}
+        {/* Matching Results - Organized by Clause Type */}
         {matchingResults.length > 0 && (
           <Card className="mt-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                Detailed Matching Results
+                Agreement Clauses & Variants
               </CardTitle>
               <CardDescription>
-                See how your preferences align with the other party's choices
+                Review all clause types and their variants with matching status
                 {agreement.updatedAt && (
                   <span className="block text-xs text-muted-foreground mt-1">
                     Last updated: {new Date(agreement.updatedAt).toLocaleString()}
                   </span>
                 )}
               </CardDescription>
+              
+              {/* Summary Stats */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">Fully Agreed</span>
+                  </div>
+                  <p className="text-lg font-bold text-green-900 mt-1">{greenCount}</p>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-yellow-600" />
+                    <span className="text-sm font-medium text-yellow-800">Partial Agreement</span>
+                  </div>
+                  <p className="text-lg font-bold text-yellow-900 mt-1">{yellowCount}</p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                    <span className="text-sm font-medium text-red-800">Conflicts</span>
+                  </div>
+                  <p className="text-lg font-bold text-red-900 mt-1">{redCount}</p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Total Clauses</span>
+                  </div>
+                  <p className="text-lg font-bold text-blue-900 mt-1">{Object.keys(groupedMatchingResults).length}</p>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -552,47 +544,108 @@ export default function AgreementViewPage() {
                   <span>Updating matching results...</span>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {matchingResults.map((result, index) => (
-                  <div key={index} className={`p-4 rounded-lg border ${getAgreementStatusColor(result.matchStatus)}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          {getAgreementStatusIcon(result.matchStatus)}
-                          <h4 className="font-medium">{result.clause_name}</h4>
-                          <Badge variant="outline" className={getAgreementStatusColor(result.matchStatus)}>
-                            {getStatusText(result.matchStatus)}
-                          </Badge>
-                        </div>
-                        <p className="text-sm mb-2">{result.variant.variant_label}</p>
-                        <p className="text-xs text-muted-foreground mb-3">{result.variant.text}</p>
-                        
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium">Initiator ({agreement.initiatorId.name}):</span>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant={result.initiatorStatus === 'accepted' ? 'default' : 'destructive'}>
-                                {result.initiatorStatus}
-                              </Badge>
-                              <span className="text-xs bg-gray-100 px-2 py-1 rounded">Priority: {result.initiatorOrder}</span>
+                <div className="space-y-6">
+                  {Object.entries(groupedMatchingResults).map(([clauseName, variants], index) => (
+                    <div key={index} className="border rounded-lg overflow-hidden">
+                      {/* Clause Type Header */}
+                      <div className="bg-muted/50 px-6 py-4 border-b">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                              <span className="text-sm font-medium text-primary">{index + 1}</span>
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-semibold">{clauseName}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {variants.length} variant{variants.length !== 1 ? 's' : ''} available
+                              </p>
                             </div>
                           </div>
-                          <div>
-                            <span className="font-medium">Invited User ({agreement.invitedUserId.name}):</span>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant={result.invitedUserStatus === 'accepted' ? 'default' : 'destructive'}>
-                                {result.invitedUserStatus}
+                          <div className="flex items-center gap-2">
+                            {getOverallClauseStatus(variants) === 'green' && (
+                              <Badge className="bg-green-100 text-green-800 border-green-200">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Fully Agreed
                               </Badge>
-                              <span className="text-xs bg-gray-100 px-2 py-1 rounded">Priority: {result.invitedUserOrder}</span>
-                            </div>
+                            )}
+                            {getOverallClauseStatus(variants) === 'yellow' && (
+                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Partial Agreement
+                              </Badge>
+                            )}
+                            {getOverallClauseStatus(variants) === 'red' && (
+                              <Badge className="bg-red-100 text-red-800 border-red-200">
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Conflict
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                        
-                        <p className="text-xs mt-2 italic">{result.reason}</p>
+                      </div>
+
+                      {/* Variants Section */}
+                      <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                        <div className="divide-y">
+                          {variants.map((result, variantIndex) => (
+                            <div key={variantIndex} className="p-6 hover:bg-muted/30 transition-colors border-l-4 border-l-transparent hover:border-l-primary/20">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    {getAgreementStatusIcon(result.matchStatus)}
+                                    <h4 className="font-medium text-base">{result.variant.variant_label}</h4>
+                                    <Badge variant="outline" className={getAgreementStatusColor(result.matchStatus)}>
+                                      {getStatusText(result.matchStatus)}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
+                                    {result.variant.text}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Party Preferences */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                    <span className="font-medium text-sm">Initiator ({agreement.initiatorId.name})</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={result.initiatorStatus === 'accepted' ? 'default' : 'destructive'} className="text-xs">
+                                      {result.initiatorStatus}
+                                    </Badge>
+                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                      Priority: {result.initiatorOrder}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    <span className="font-medium text-sm">Invited User ({agreement.invitedUserId.name})</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={result.invitedUserStatus === 'accepted' ? 'default' : 'destructive'} className="text-xs">
+                                      {result.invitedUserStatus}
+                                    </Badge>
+                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                      Priority: {result.invitedUserOrder}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <p className="text-xs text-muted-foreground mt-3 italic bg-muted/50 p-2 rounded">
+                                {result.reason}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
                 </div>
               )}
             </CardContent>
