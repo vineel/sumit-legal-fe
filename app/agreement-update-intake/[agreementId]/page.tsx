@@ -7,17 +7,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { 
   FileText, 
   ArrowLeft,
   Loader2,
   CheckCircle,
   AlertCircle,
-  Mail,
   GripVertical,
   Check,
-  X
+  X,
+  Save
 } from "lucide-react"
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -47,6 +46,32 @@ interface Template {
   global_questions: GlobalQuestion[]
 }
 
+interface Agreement {
+  _id: string
+  templateId: Template
+  initiatorId: {
+    _id: string
+    name: string
+    email: string
+  }
+  invitedUserId: {
+    _id: string
+    name: string
+    email: string
+  }
+  status: string
+  initiatorData?: {
+    intakeAnswers: Record<string, string>
+    selectedClauses: any[]
+    clauseVariantsOrder?: Record<string, any[]>
+  }
+  invitedUserData?: {
+    intakeAnswers: Record<string, string>
+    selectedClauses: any[]
+    clauseVariantsOrder?: Record<string, any[]>
+  }
+}
+
 interface SelectedClause {
   clause_name: string
   variant: ClauseVariant
@@ -54,27 +79,48 @@ interface SelectedClause {
   order: number
 }
 
-export default function TemplateViewerPage() {
+export default function AgreementUpdateIntakePage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
   
+  const [agreement, setAgreement] = useState<Agreement | null>(null)
   const [template, setTemplate] = useState<Template | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [intakeAnswers, setIntakeAnswers] = useState<Record<string, string>>({})
   const [selectedClauses, setSelectedClauses] = useState<SelectedClause[]>([])
   const [clauseVariantsOrder, setClauseVariantsOrder] = useState<Record<string, Array<ClauseVariant & { order: number }>>>({})
-  const [inviteEmail, setInviteEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isPrefilling, setIsPrefilling] = useState(false)
 
-  const templateId = params.id as string
+  const agreementId = params.agreementId as string
 
   useEffect(() => {
-    fetchTemplate()
-  }, [templateId])
+    // Get current user ID from token first
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setCurrentUserId(payload.id)
+      } catch (error) {
+        console.error('Error parsing token:', error)
+      }
+    }
+    fetchAgreement()
+  }, [agreementId])
 
-  const fetchTemplate = async () => {
+  // Pre-fill data when both agreement and currentUserId are available
+  useEffect(() => {
+    if (agreement && currentUserId) {
+      setIsPrefilling(true)
+      prefillUserData(agreement)
+      setIsPrefilling(false)
+    }
+  }, [agreement, currentUserId])
+
+  const fetchAgreement = async () => {
     try {
       setLoading(true)
       const token = localStorage.getItem('auth_token')
@@ -82,7 +128,9 @@ export default function TemplateViewerPage() {
         throw new Error('No authentication token found')
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/template/single/${templateId}`, {
+      console.log('🔍 Fetching agreement for update:', agreementId)
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -90,22 +138,86 @@ export default function TemplateViewerPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch template')
+        const errorText = await response.text()
+        console.error('❌ Failed to fetch agreement:', errorText)
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
       if (data.success) {
-        setTemplate(data.template)
-        initializeClauseVariantsOrder(data.template.clauses)
+        console.log('✅ Agreement fetched successfully:', data.agreement)
+        setAgreement(data.agreement)
+        setTemplate(data.agreement.templateId)
       } else {
-        throw new Error(data.message || 'Failed to fetch template')
+        throw new Error(data.message || 'Failed to fetch agreement')
       }
     } catch (error: any) {
-      console.error('Error fetching template:', error)
+      console.error('Error fetching agreement:', error)
       setError(error.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  const prefillUserData = (agreement: Agreement) => {
+    if (!currentUserId) {
+      console.log('❌ No currentUserId available for pre-filling')
+      return
+    }
+
+    console.log('🔄 Pre-filling user data for user:', currentUserId)
+    
+    // Determine which user's data to load
+    const isInitiator = currentUserId === agreement.initiatorId._id
+    const userData = isInitiator ? agreement.initiatorData : agreement.invitedUserData
+
+    console.log('👤 User role:', isInitiator ? 'Initiator' : 'Invited User')
+    console.log('📊 User data:', userData)
+
+    if (userData) {
+      // Pre-fill intake answers
+      console.log('📝 Pre-filling intake answers:', userData.intakeAnswers)
+      setIntakeAnswers(userData.intakeAnswers || {})
+      
+      // Pre-fill selected clauses (only rejected ones with new logic)
+      console.log('📋 Pre-filling selected clauses:', userData.selectedClauses)
+      console.log('📊 Pre-filled selected clauses with orders:', userData.selectedClauses?.map(sc => ({
+        clause_name: sc.clause_name,
+        variant: sc.variant.variant_label,
+        status: sc.status,
+        order: sc.order
+      })))
+      
+      // With new toggleable reject logic, only rejected variants should be in selectedClauses
+      const rejectedClauses = (userData.selectedClauses || []).filter(sc => sc.status === 'rejected')
+      console.log('❌ Pre-filling only rejected clauses:', rejectedClauses)
+      setSelectedClauses(rejectedClauses)
+      
+      // Pre-fill clause variants order or initialize default order
+      if (userData.clauseVariantsOrder) {
+        console.log('🔢 Pre-filling clause variants order:', userData.clauseVariantsOrder)
+        console.log('🔢 Pre-filled order details:', Object.keys(userData.clauseVariantsOrder).map(clauseName => ({
+          clause: clauseName,
+          variants: userData.clauseVariantsOrder[clauseName]?.map(v => `${v.variant_label} (order: ${v.order})`)
+        })))
+        setClauseVariantsOrder(userData.clauseVariantsOrder)
+      } else {
+        console.log('🔢 Initializing default clause variants order')
+        initializeClauseVariantsOrder(agreement.templateId.clauses)
+      }
+    } else {
+      console.log('⚠️ No existing user data found, initializing with defaults')
+      // Initialize with default order if no existing data
+      initializeClauseVariantsOrder(agreement.templateId.clauses)
+    }
+    
+    console.log('✅ Pre-filling completed successfully')
+    
+    // Show success message
+    toast({
+      title: "Form Loaded",
+      description: "Your existing preferences have been loaded. All variants are auto-accepted by default. Click ❌ to reject specific variants.",
+    })
   }
 
   const initializeClauseVariantsOrder = (clauses: Clause[]) => {
@@ -127,6 +239,9 @@ export default function TemplateViewerPage() {
   }
 
   const handleClauseVariantSelect = (clauseName: string, variant: ClauseVariant, status: 'accepted' | 'rejected') => {
+    console.log(`🎯 User ${status} clause: ${clauseName} - ${variant.variant_label}`)
+    console.log(`🔢 Current order for this variant:`, clauseVariantsOrder[clauseName]?.find(v => v.variant_label === variant.variant_label)?.order || 1)
+    
     setSelectedClauses(prev => {
       const existingClause = prev.find(sc => 
         sc.clause_name === clauseName && sc.variant.variant_label === variant.variant_label
@@ -134,15 +249,26 @@ export default function TemplateViewerPage() {
       
       if (existingClause) {
         // If already rejected, clicking X again should accept it (remove from rejected list)
+        console.log(`✅ Toggling back to accepted: ${clauseName} - ${variant.variant_label}`)
         return prev.filter(sc => !(sc.clause_name === clauseName && sc.variant.variant_label === variant.variant_label))
       } else {
         // If not rejected yet, clicking X should reject it
-        return [...prev, {
+        const newClause = {
           clause_name: clauseName,
           variant,
           status: 'rejected',
           order: clauseVariantsOrder[clauseName]?.find(v => v.variant_label === variant.variant_label)?.order || 1
-        }]
+        }
+        
+        console.log(`✅ Added clause with order:`, newClause.order)
+        console.log(`📋 Updated selected clauses:`, [...prev, newClause].map(sc => ({
+          clause_name: sc.clause_name,
+          variant: sc.variant.variant_label,
+          status: sc.status,
+          order: sc.order
+        })))
+        
+        return [...prev, newClause]
       }
     })
   }
@@ -150,7 +276,11 @@ export default function TemplateViewerPage() {
   const handleDrop = (clauseName: string, targetIndex: number, draggedItem: any) => {
     const { clauseName: draggedClauseName, variantIndex: draggedIndex } = draggedItem
 
+    console.log(`🔄 Drag & Drop: ${clauseName}`)
+    console.log(`   Dragged from index: ${draggedIndex} to index: ${targetIndex}`)
+
     if (clauseName !== draggedClauseName || draggedIndex === targetIndex) {
+      console.log(`   ❌ No change needed (same position)`)
       return
     }
 
@@ -158,8 +288,11 @@ export default function TemplateViewerPage() {
       const newOrder = { ...prev }
       const variants = [...newOrder[clauseName]]
 
+      console.log(`   📋 Before reorder:`, variants.map((v, i) => `${v.variant_label} (order: ${v.order})`))
+
       // Remove the dragged item from its current position
       const draggedVariant = variants.splice(draggedIndex, 1)[0]
+      console.log(`   🎯 Dragged variant: ${draggedVariant.variant_label}`)
       
       // Insert it at the target position
       variants.splice(targetIndex, 0, draggedVariant)
@@ -170,18 +303,33 @@ export default function TemplateViewerPage() {
         order: index + 1
       }))
 
+      console.log(`   📋 After reorder:`, updatedVariants.map((v, i) => `${v.variant_label} (order: ${v.order})`))
+
       newOrder[clauseName] = updatedVariants
       return newOrder
     })
   }
 
   const validateForm = () => {
-    if (!template) return false
+    if (!template) {
+      console.log('❌ Validation failed: No template')
+      return false
+    }
+
+    console.log('🔍 Validating form...')
+    console.log('📊 Template clauses:', template.clauses?.length || 0)
+    console.log('📊 Selected clauses (rejected only):', selectedClauses.length)
+    console.log('📊 Selected clauses details:', selectedClauses.map(sc => ({
+      clause_name: sc.clause_name,
+      variant: sc.variant.variant_label,
+      status: sc.status
+    })))
 
     // Check if all global questions are answered
     const requiredQuestions = template.global_questions.filter(q => q.required)
     for (const question of requiredQuestions) {
       if (!intakeAnswers[question.question]?.trim()) {
+        console.log('❌ Validation failed: Missing required question:', question.question)
         toast({
           title: "Validation Error",
           description: `Please answer the required question: ${question.question}`,
@@ -192,25 +340,32 @@ export default function TemplateViewerPage() {
     }
 
     // Check if all clause variants are processed
-    // In template viewer, all variants are auto-accepted unless explicitly rejected
+    // In agreement update intake, all variants are auto-accepted unless explicitly rejected
     // So we just need to ensure all variants have been processed (either auto-accepted or explicitly rejected)
     const totalVariants = template.clauses.reduce((sum, clause) => sum + clause.variants.length, 0)
     const processedVariants = selectedClauses.length // Only rejected variants are in selectedClauses
     const autoAcceptedVariants = totalVariants - processedVariants
     
+    console.log('📊 Validation summary:', {
+      totalVariants,
+      processedVariants,
+      autoAcceptedVariants
+    })
+    
     // All variants are either auto-accepted or explicitly rejected
     // No need to check if all are "selected" since auto-acceptance is the default
 
+    console.log('✅ Validation passed')
     return true
   }
 
-  const handleSendInvite = async () => {
+  const handleUpdateIntake = async () => {
     if (!validateForm()) return
 
-    if (!template) {
+    if (!agreement || !currentUserId) {
       toast({
-        title: "Template Error",
-        description: "Template not loaded. Please try again.",
+        title: "Agreement Error",
+        description: "Agreement not loaded. Please try again.",
         variant: "destructive"
       })
       return
@@ -223,8 +378,21 @@ export default function TemplateViewerPage() {
         throw new Error('No authentication token found')
       }
 
-      console.log('🚀 Creating agreement with template:', template._id)
+      console.log('📝 Updating intake form for agreement:', agreementId)
+      console.log('📊 Selected clauses with orders:', selectedClauses.map(sc => ({
+        clause_name: sc.clause_name,
+        variant: sc.variant.variant_label,
+        status: sc.status,
+        order: sc.order
+      })))
+      console.log('🔢 Clause variants order:', clauseVariantsOrder)
+      console.log('🔢 Detailed clause variants order:', Object.keys(clauseVariantsOrder).map(clauseName => ({
+        clause: clauseName,
+        variants: clauseVariantsOrder[clauseName]?.map(v => `${v.variant_label} (order: ${v.order})`)
+      })))
 
+      const isInitiator = currentUserId === agreement.initiatorId._id
+      
       // Prepare data: auto-accept all variants, then override with explicit rejections
       const allVariants = template.clauses.flatMap(clause => 
         clause.variants.map(variant => ({
@@ -243,47 +411,50 @@ export default function TemplateViewerPage() {
         )
         return explicitRejection || variant
       })
-
-      const initiatorData = {
-        intakeAnswers: intakeAnswers,
+      
+      const updateData = {
+        intakeAnswers,
         selectedClauses: finalSelectedClauses,
-        clauseVariantsOrder: clauseVariantsOrder
+        clauseVariantsOrder
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/create`, {
-        method: 'POST',
+      const requestBody = isInitiator 
+        ? { initiatorData: updateData }
+        : { invitedUserData: updateData }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}/update`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          templateId: template._id,
-          inviteEmail: inviteEmail,
-          initiatorData: initiatorData
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('❌ Agreement creation failed:', errorData)
-        throw new Error(errorData.message || 'Failed to create agreement')
+        console.error('❌ Agreement update failed:', errorData)
+        throw new Error(errorData.message || 'Failed to update intake form')
       }
 
       const result = await response.json()
-      console.log('✅ Agreement created successfully:', result)
+      console.log('✅ Intake form updated successfully:', result)
       
       toast({
-        title: "Invite Sent!",
-        description: `Agreement created and invite sent to ${inviteEmail}`,
+        title: "Intake Form Updated!",
+        description: "Your preferences have been updated successfully.",
       })
 
-      // Redirect to dashboard
-      router.push('/dashboard')
+      // Add a flag to indicate that data was updated
+      localStorage.setItem(`agreement_${agreementId}_updated`, Date.now().toString())
+
+      // Redirect back to agreement view
+      router.push(`/agreement-view/${agreementId}`)
     } catch (error: any) {
-      console.error('Error sending invite:', error)
+      console.error('Error updating intake form:', error)
       toast({
         title: "Error",
-        description: `Failed to send invite: ${error.message}`,
+        description: `Failed to update intake form: ${error.message}`,
         variant: "destructive"
       })
     } finally {
@@ -386,25 +557,25 @@ export default function TemplateViewerPage() {
     )
   }
 
-  if (loading) {
+  if (loading || isPrefilling) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading template...</p>
+          <p>{isPrefilling ? 'Loading your existing preferences...' : 'Loading agreement...'}</p>
         </div>
       </div>
     )
   }
 
-  if (error || !template) {
+  if (error || !agreement || !template) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Template Not Found</h2>
+          <h2 className="text-xl font-semibold mb-2">Agreement Not Found</h2>
           <p className="text-muted-foreground mb-4">
-            {error || 'The template you are looking for does not exist or has been removed.'}
+            {error || 'The agreement you are looking for does not exist or you are not authorized to view it.'}
           </p>
           <Button onClick={() => router.push('/dashboard')} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -421,12 +592,26 @@ export default function TemplateViewerPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">{template.templatename}</h1>
-            <p className="text-muted-foreground mt-2">{template.description}</p>
+            <h1 className="text-3xl font-bold">Update Intake Form</h1>
+            <p className="text-muted-foreground mt-2">{template.templatename}</p>
+            <div className="flex items-center gap-4 mt-4">
+              <Badge variant="outline">
+                Agreement: {agreement.initiatorId.name} & {agreement.invitedUserId.name}
+              </Badge>
+              <Badge variant="secondary">
+                Status: {agreement.status}
+              </Badge>
+              {selectedClauses.length > 0 && (
+                <Badge variant="default" className="bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Pre-filled with {selectedClauses.length} existing preferences
+                </Badge>
+              )}
+            </div>
           </div>
-          <Button onClick={() => router.push('/dashboard')} variant="outline">
+          <Button onClick={() => router.push(`/agreement-view/${agreementId}`)} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            Back to Agreement
           </Button>
         </div>
 
@@ -498,28 +683,18 @@ export default function TemplateViewerPage() {
               </Card>
             ))}
 
-            {/* Send Invite Section */}
+            {/* Update Intake Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Mail className="w-5 h-5" />
-                  Send Invite
+                  <Save className="w-5 h-5" />
+                  Update Your Intake
                 </CardTitle>
                 <CardDescription>
-                  Enter the email address of the party you want to invite to this agreement.
+                  Review your selections and update your intake form.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Email Address</label>
-                  <Input
-                    type="email"
-                    placeholder="Enter email address..."
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                  />
-                </div>
-                
                 {/* Progress Indicator */}
                 <div className="bg-muted/50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -539,19 +714,24 @@ export default function TemplateViewerPage() {
                   <p className="text-xs text-muted-foreground mt-2">
                     All variants are auto-accepted by default. Click ❌ to reject specific variants.
                   </p>
+                  {selectedClauses.length > 0 && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      ✅ Form pre-filled with your existing preferences. You can drag to reorder and modify selections.
+                    </div>
+                  )}
                 </div>
 
                 <Button 
-                  onClick={handleSendInvite}
+                  onClick={handleUpdateIntake}
                   className="w-full"
-                  disabled={!inviteEmail.trim() || submitting}
+                  disabled={submitting}
                 >
                   {submitting ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
-                    <Mail className="w-4 h-4 mr-2" />
+                    <Save className="w-4 h-4 mr-2" />
                   )}
-                  Send Invite
+                  Update Intake Form
                 </Button>
               </CardContent>
             </Card>

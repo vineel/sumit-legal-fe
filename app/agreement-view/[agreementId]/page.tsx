@@ -14,7 +14,9 @@ import {
   XCircle,
   Clock,
   Users,
-  Mail
+  Mail,
+  Edit,
+  RefreshCw
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AgreementChat } from "@/components/agreement-chat"
@@ -35,6 +37,10 @@ interface Template {
   templatename: string
   description: string
   clauses: Clause[]
+  global_questions?: Array<{
+    question: string
+    required: boolean
+  }>
 }
 
 interface MatchingResult {
@@ -65,12 +71,15 @@ interface Agreement {
   initiatorData: {
     intakeAnswers: Record<string, string>
     selectedClauses: any[]
+    clauseVariantsOrder?: Record<string, any[]>
   }
   invitedUserData: {
     intakeAnswers: Record<string, string>
     selectedClauses: any[]
+    clauseVariantsOrder?: Record<string, any[]>
   }
   matchingResults: MatchingResult[]
+  updatedAt?: string
 }
 
 export default function AgreementViewPage() {
@@ -96,6 +105,42 @@ export default function AgreementViewPage() {
       } catch (error) {
         console.error('Error parsing token:', error)
       }
+    }
+  }, [agreementId])
+
+  // Refresh agreement data when page becomes visible (e.g., returning from update intake)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Page became visible, refreshing agreement data...')
+        fetchAgreement()
+      }
+    }
+
+    const handleFocus = () => {
+      console.log('🔄 Window focused, refreshing agreement data...')
+      fetchAgreement()
+    }
+
+    // Check if agreement was updated from another page
+    const checkForUpdates = () => {
+      const updateFlag = localStorage.getItem(`agreement_${agreementId}_updated`)
+      if (updateFlag) {
+        console.log('🔄 Agreement was updated, refreshing data...')
+        fetchAgreement()
+        localStorage.removeItem(`agreement_${agreementId}_updated`)
+      }
+    }
+
+    // Check immediately when component mounts
+    checkForUpdates()
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
     }
   }, [agreementId])
 
@@ -126,6 +171,14 @@ export default function AgreementViewPage() {
       if (data.success) {
         console.log('✅ Agreement fetched successfully:', data.agreement)
         setAgreement(data.agreement)
+        
+        // Show success message if this was a refresh (not initial load)
+        if (agreement) {
+          toast({
+            title: "Agreement Updated",
+            description: "Matching results have been refreshed with the latest data.",
+          })
+        }
       } else {
         throw new Error(data.message || 'Failed to fetch agreement')
       }
@@ -175,6 +228,7 @@ export default function AgreementViewPage() {
         return 'Unknown'
     }
   }
+
 
   if (loading) {
     return (
@@ -229,10 +283,20 @@ export default function AgreementViewPage() {
               </Badge>
             </div>
           </div>
-          <Button onClick={() => router.push('/dashboard')} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => router.push(`/agreement-update-intake/${agreementId}`)} variant="default" className="gap-2">
+              <Edit className="w-4 h-4" />
+              Update Intake Form
+            </Button>
+            <Button onClick={fetchAgreement} variant="outline" className="gap-2" disabled={loading}>
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button onClick={() => router.push('/dashboard')} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
@@ -307,11 +371,22 @@ export default function AgreementViewPage() {
               </CardTitle>
               <CardDescription>
                 See how your preferences align with the other party's choices
+                {agreement.updatedAt && (
+                  <span className="block text-xs text-muted-foreground mt-1">
+                    Last updated: {new Date(agreement.updatedAt).toLocaleString()}
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {matchingResults.map((result, index) => (
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                  <span>Updating matching results...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {matchingResults.map((result, index) => (
                   <div key={index} className={`p-4 rounded-lg border ${getAgreementStatusColor(result.matchStatus)}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -327,21 +402,21 @@ export default function AgreementViewPage() {
                         
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <span className="font-medium">Initiator:</span>
+                            <span className="font-medium">Initiator ({agreement.initiatorId.name}):</span>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant={result.initiatorStatus === 'accepted' ? 'default' : 'destructive'}>
                                 {result.initiatorStatus}
                               </Badge>
-                              <span className="text-xs">Order: {result.initiatorOrder}</span>
+                              <span className="text-xs bg-gray-100 px-2 py-1 rounded">Priority: {result.initiatorOrder}</span>
                             </div>
                           </div>
                           <div>
-                            <span className="font-medium">Invited User:</span>
+                            <span className="font-medium">Invited User ({agreement.invitedUserId.name}):</span>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant={result.invitedUserStatus === 'accepted' ? 'default' : 'destructive'}>
                                 {result.invitedUserStatus}
                               </Badge>
-                              <span className="text-xs">Order: {result.invitedUserOrder}</span>
+                              <span className="text-xs bg-gray-100 px-2 py-1 rounded">Priority: {result.invitedUserOrder}</span>
                             </div>
                           </div>
                         </div>
@@ -351,7 +426,8 @@ export default function AgreementViewPage() {
                     </div>
                   </div>
                 ))}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -368,6 +444,7 @@ export default function AgreementViewPage() {
             }
           />
         )}
+
 
       </div>
     </div>

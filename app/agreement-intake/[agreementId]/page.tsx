@@ -137,7 +137,7 @@ export default function AgreementIntakePage() {
     clauses.forEach(clause => {
       order[clause.clause_name] = clause.variants.map((variant, index) => ({
         ...variant,
-        order: index
+        order: index + 1  // Start from 1, not 0
       }))
     })
     setClauseVariantsOrder(order)
@@ -152,13 +152,22 @@ export default function AgreementIntakePage() {
 
   const handleClauseVariantSelect = (clauseName: string, variant: ClauseVariant, status: 'accepted' | 'rejected') => {
     setSelectedClauses(prev => {
-      const filtered = prev.filter(sc => !(sc.clause_name === clauseName && sc.variant.variant_label === variant.variant_label))
-      return [...filtered, {
-        clause_name: clauseName,
-        variant,
-        status,
-        order: clauseVariantsOrder[clauseName]?.find(v => v.variant_label === variant.variant_label)?.order || 0
-      }]
+      const existingClause = prev.find(sc => 
+        sc.clause_name === clauseName && sc.variant.variant_label === variant.variant_label
+      )
+      
+      if (existingClause) {
+        // If already rejected, clicking X again should accept it (remove from rejected list)
+        return prev.filter(sc => !(sc.clause_name === clauseName && sc.variant.variant_label === variant.variant_label))
+      } else {
+        // If not rejected yet, clicking X should reject it
+        return [...prev, {
+          clause_name: clauseName,
+          variant,
+          status: 'rejected',
+          order: clauseVariantsOrder[clauseName]?.find(v => v.variant_label === variant.variant_label)?.order || 1
+        }]
+      }
     })
   }
 
@@ -179,10 +188,10 @@ export default function AgreementIntakePage() {
       // Insert it at the target position
       variants.splice(targetIndex, 0, draggedVariant)
       
-      // Update order numbers
+      // Update order numbers (start from 1)
       const updatedVariants = variants.map((variant, index) => ({
         ...variant,
-        order: index
+        order: index + 1
       }))
 
       newOrder[clauseName] = updatedVariants
@@ -206,16 +215,15 @@ export default function AgreementIntakePage() {
       }
     }
 
-    // Check if all clause variants are selected
+    // Check if all clause variants are processed
+    // In agreement intake, all variants are auto-accepted unless explicitly rejected
+    // So we just need to ensure all variants have been processed (either auto-accepted or explicitly rejected)
     const totalVariants = template.clauses.reduce((sum, clause) => sum + clause.variants.length, 0)
-    if (selectedClauses.length !== totalVariants) {
-      toast({
-        title: "Selection Required",
-        description: "Please accept or reject all clause variants before proceeding.",
-        variant: "destructive"
-      })
-      return false
-    }
+    const processedVariants = selectedClauses.length // Only rejected variants are in selectedClauses
+    const autoAcceptedVariants = totalVariants - processedVariants
+    
+    // All variants are either auto-accepted or explicitly rejected
+    // No need to check if all are "selected" since auto-acceptance is the default
 
     return true
   }
@@ -241,9 +249,28 @@ export default function AgreementIntakePage() {
 
       console.log('📝 Completing intake for agreement:', agreementId)
 
+      // Prepare data: auto-accept all variants, then override with explicit rejections
+      const allVariants = template.clauses.flatMap(clause => 
+        clause.variants.map(variant => ({
+          clause_name: clause.clause_name,
+          variant,
+          status: 'accepted' as const, // Default to accepted
+          order: clauseVariantsOrder[clause.clause_name]?.find(v => v.variant_label === variant.variant_label)?.order || 1
+        }))
+      )
+      
+      // Override with explicit rejections
+      const finalSelectedClauses = allVariants.map(variant => {
+        const explicitRejection = selectedClauses.find(sc => 
+          sc.clause_name === variant.clause_name && 
+          sc.variant.variant_label === variant.variant.variant_label
+        )
+        return explicitRejection || variant
+      })
+
       const invitedUserData = {
         intakeAnswers: intakeAnswers,
-        selectedClauses: selectedClauses,
+        selectedClauses: finalSelectedClauses,
         clauseVariantsOrder: clauseVariantsOrder
       }
 
@@ -319,6 +346,10 @@ export default function AgreementIntakePage() {
         }`}
       >
         <div className="flex items-start gap-3">
+          {/* Priority Number */}
+          <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-bold text-sm">
+            {variantIndex + 1}
+          </div>
           <div ref={drag as any} className="cursor-move">
             <GripVertical className="w-5 h-5 text-gray-400 mt-1" />
           </div>
@@ -329,19 +360,21 @@ export default function AgreementIntakePage() {
           <div className="flex gap-2">
             <Button
               size="sm"
-              variant={status === 'accepted' ? 'default' : 'outline'}
-              onClick={() => handleClauseVariantSelect(clauseName, variant, 'accepted')}
-              className="h-8 px-3"
-            >
-              <Check className="w-4 h-4" />
-            </Button>
-            <Button
-              size="sm"
               variant={status === 'rejected' ? 'destructive' : 'outline'}
               onClick={() => handleClauseVariantSelect(clauseName, variant, 'rejected')}
               className="h-8 px-3"
             >
-              <X className="w-4 h-4" />
+              {status === 'rejected' ? (
+                <>
+                  <X className="w-4 h-4 mr-1" />
+                  Rejected
+                </>
+              ) : (
+                <>
+                  <X className="w-4 h-4 mr-1" />
+                  Reject
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -512,23 +545,26 @@ export default function AgreementIntakePage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">Selection Progress</span>
                     <span className="text-sm text-muted-foreground">
-                      {selectedClauses.length} of {template.clauses?.reduce((sum, clause) => sum + clause.variants.length, 0) || 0} clause variants selected
+                      {template.clauses?.reduce((sum, clause) => sum + clause.variants.length, 0) || 0} variants (auto-accepted), {selectedClauses.length} explicitly rejected
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div 
-                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
                       style={{ 
-                        width: `${(selectedClauses.length / (template.clauses?.reduce((sum, clause) => sum + clause.variants.length, 0) || 1)) * 100}%` 
+                        width: `100%` 
                       }}
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    All variants are auto-accepted by default. Click ❌ to reject specific variants.
+                  </p>
                 </div>
 
                 <Button 
                   onClick={handleCompleteIntake}
                   className="w-full"
-                  disabled={selectedClauses.length !== (template.clauses?.reduce((sum, clause) => sum + clause.variants.length, 0) || 0) || submitting}
+                  disabled={submitting}
                 >
                   {submitting ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
