@@ -207,8 +207,8 @@ export function AgreementDetailsPage({ agreementId }: AgreementDetailsPageProps)
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <CardTitle className="text-3xl mb-2">
-                  {agreement.partyAName || "Agreement"}
-                  {agreement.partyBEmail && ` with ${agreement.partyBEmail}`}
+                  {agreement.initiatorId.name || "Agreement"}
+                  {agreement.invitedUserId.email && ` with ${agreement.invitedUserId.email}`}
                 </CardTitle>
                 <CardDescription className="text-lg">
                   {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : "Legal agreement between parties"}
@@ -248,16 +248,16 @@ export function AgreementDetailsPage({ agreementId }: AgreementDetailsPageProps)
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Effective Date:</span>
-                      <span className="font-medium">{formatDate(agreement.effectiveDate)}</span>
+                      <span className="text-muted-foreground">Created Date:</span>
+                      <span className="font-medium">{formatDate(agreement.createdAt)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Term Duration:</span>
-                      <span className="font-medium">{agreement.termDuration || "Not specified"}</span>
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className="font-medium">{agreement.status || "Draft"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Signed Date:</span>
-                      <span className="font-medium">{agreement.signedDate ? formatDate(agreement.signedDate) : "Not signed"}</span>
+                      <span className="font-medium">{agreement.signatures?.initiatorSignature?.signedAt ? formatDate(agreement.signatures.initiatorSignature.signedAt) : "Not signed"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Last Updated:</span>
@@ -277,8 +277,8 @@ export function AgreementDetailsPage({ agreementId }: AgreementDetailsPageProps)
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Jurisdiction:</span>
-                      <span className="font-medium">{agreement.jurisdiction || "Not specified"}</span>
+                      <span className="text-muted-foreground">Template:</span>
+                      <span className="font-medium">{typeof agreement.templateId === 'object' ? agreement.templateId.templatename : "Legal Agreement"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Status:</span>
@@ -304,21 +304,22 @@ export function AgreementDetailsPage({ agreementId }: AgreementDetailsPageProps)
               </Card>
             </div>
 
-            {/* Agreement Clauses */}
-            {agreement.clauses && agreement.clauses.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Agreement Clauses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      This agreement contains {agreement.clauses.length} clause(s) that need to be reviewed and agreed upon by both parties.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Agreement Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Agreement Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    This agreement is based on the template: {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : "Legal Agreement"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Status: {agreement.status || "Draft"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Parties Tab */}
@@ -334,11 +335,15 @@ export function AgreementDetailsPage({ agreementId }: AgreementDetailsPageProps)
                 <CardContent className="space-y-3">
                   <div>
                     <span className="text-muted-foreground">Name:</span>
-                    <p className="font-medium">{agreement.partyAName || "Not specified"}</p>
+                    <p className="font-medium">{agreement.initiatorId.name}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Email:</span>
+                    <p className="font-medium">{agreement.initiatorId.email}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">User ID:</span>
-                    <p className="font-medium">{agreement.userid}</p>
+                    <p className="font-medium">{agreement.initiatorId._id}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -353,14 +358,16 @@ export function AgreementDetailsPage({ agreementId }: AgreementDetailsPageProps)
                 <CardContent className="space-y-3">
                   <div>
                     <span className="text-muted-foreground">Name:</span>
-                    <p className="font-medium">{agreement.partyBEmail || "Not specified"}</p>
+                    <p className="font-medium">{agreement.invitedUserId.name}</p>
                   </div>
-                  {agreement.partyBEmail && (
-                    <div>
-                      <span className="text-muted-foreground">Email:</span>
-                      <p className="font-medium">{agreement.partyBEmail}</p>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-muted-foreground">Email:</span>
+                    <p className="font-medium">{agreement.invitedUserId.email}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">User ID:</span>
+                    <p className="font-medium">{agreement.invitedUserId._id}</p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -368,51 +375,21 @@ export function AgreementDetailsPage({ agreementId }: AgreementDetailsPageProps)
 
           {/* Clauses Tab */}
           <TabsContent value="clauses" className="space-y-6">
-            {agreement.clauses && agreement.clauses.length > 0 ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Clauses ({agreement.clauses.length})</h3>
-                  <Button size="sm">
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Clauses
-                  </Button>
-                </div>
-                {agreement.clauses.map((clause, index) => (
-                  <Card key={index}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">Clause {index + 1}</CardTitle>
-                          <CardDescription className="mt-1">
-                            Clause ID: {clause.clauseId}
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            Party A: {clause.partyAPreference || "No preference"}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            Party B: {clause.partyBPreference || "No preference"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Clauses</h3>
-                  <p className="text-muted-foreground mb-4">This agreement doesn't have any clauses yet.</p>
-                  <Button>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Add Clauses
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            <Card>
+              <CardContent className="text-center py-12">
+                <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Agreement Details</h3>
+                <p className="text-muted-foreground mb-4">
+                  This agreement is based on the template: {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : "Legal Agreement"}
+                </p>
+                <p className="text-muted-foreground mb-4">
+                  Status: {agreement.status || "Draft"}
+                </p>
+                <p className="text-muted-foreground">
+                  Created: {formatDate(agreement.createdAt)}
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Documents Tab */}

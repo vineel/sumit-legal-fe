@@ -250,6 +250,10 @@ export default function AgreementIntakePage() {
       console.log('📝 Completing intake for agreement:', agreementId)
 
       // Prepare data: auto-accept all variants, then override with explicit rejections
+      if (!template) {
+        throw new Error('Template not loaded')
+      }
+      
       const allVariants = template.clauses.flatMap(clause => 
         clause.variants.map(variant => ({
           clause_name: clause.clause_name,

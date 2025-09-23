@@ -198,7 +198,7 @@ export default function AgreementUpdateIntakePage() {
         console.log('🔢 Pre-filling clause variants order:', userData.clauseVariantsOrder)
         console.log('🔢 Pre-filled order details:', Object.keys(userData.clauseVariantsOrder).map(clauseName => ({
           clause: clauseName,
-          variants: userData.clauseVariantsOrder[clauseName]?.map(v => `${v.variant_label} (order: ${v.order})`)
+          variants: userData.clauseVariantsOrder?.[clauseName]?.map(v => `${v.variant_label} (order: ${v.order})`)
         })))
         setClauseVariantsOrder(userData.clauseVariantsOrder)
       } else {
@@ -253,10 +253,10 @@ export default function AgreementUpdateIntakePage() {
         return prev.filter(sc => !(sc.clause_name === clauseName && sc.variant.variant_label === variant.variant_label))
       } else {
         // If not rejected yet, clicking X should reject it
-        const newClause = {
+        const newClause: SelectedClause = {
           clause_name: clauseName,
           variant,
-          status: 'rejected',
+          status: 'rejected' as const,
           order: clauseVariantsOrder[clauseName]?.find(v => v.variant_label === variant.variant_label)?.order || 1
         }
         
@@ -394,6 +394,10 @@ export default function AgreementUpdateIntakePage() {
       const isInitiator = currentUserId === agreement.initiatorId._id
       
       // Prepare data: auto-accept all variants, then override with explicit rejections
+      if (!template) {
+        throw new Error('Template not loaded')
+      }
+      
       const allVariants = template.clauses.flatMap(clause => 
         clause.variants.map(variant => ({
           clause_name: clause.clause_name,

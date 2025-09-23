@@ -491,7 +491,7 @@ export function AgreementManagement({ userRole }: AgreementManagementProps) {
                   )}
 
                   {/* Send Invite button - show when no party B is set */}
-                  {!agreement.partyBUserId && !agreement.partyBEmail && (
+                  {!agreement.invitedUserId && (
                     <Button 
                       variant="outline" 
                       size="sm" 

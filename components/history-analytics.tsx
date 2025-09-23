@@ -91,12 +91,12 @@ export function HistoryAnalytics() {
   }
 
   const calculateAverageNegotiationTime = (agreements: Agreement[]): number => {
-    const completedAgreements = agreements.filter(a => a.status === 'signed' && a.signedDate)
+    const completedAgreements = agreements.filter(a => a.status === 'signed' && a.signatures?.initiatorSignature?.signedAt)
     if (completedAgreements.length === 0) return 0
 
     const totalTime = completedAgreements.reduce((total, agreement) => {
       const created = new Date(agreement.createdAt).getTime()
-      const signed = new Date(agreement.signedDate!).getTime()
+      const signed = new Date(agreement.signatures?.initiatorSignature?.signedAt!).getTime()
       return total + (signed - created)
     }, 0)
 
@@ -104,20 +104,9 @@ export function HistoryAnalytics() {
   }
 
   const calculateMostCommonConflicts = (agreements: Agreement[]): Array<{ clause: string; count: number }> => {
-    const conflictCount: Record<string, number> = {}
-    
-    agreements.forEach(agreement => {
-      agreement.clauses.forEach(clause => {
-        if (clause.partyAPreference !== clause.partyBPreference) {
-          conflictCount[clause.clauseId] = (conflictCount[clause.clauseId] || 0) + 1
-        }
-      })
-    })
-
-    return Object.entries(conflictCount)
-      .map(([clause, count]) => ({ clause, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
+    // Since clauses property doesn't exist on Agreement interface, return empty array
+    // This function would need to be updated when clause data is available
+    return []
   }
 
   const calculateMonthlyStats = (agreements: Agreement[]): Array<{ month: string; agreements: number; completed: number }> => {
@@ -215,7 +204,7 @@ export function HistoryAnalytics() {
                       <div className="flex items-start justify-between">
                         <div>
                           <CardTitle className="text-lg">
-                            {agreement.partyAName} ↔ {agreement.partyBEmail || 'Email Invite'}
+                            {agreement.initiatorId.name} ↔ {agreement.invitedUserId.name}
                           </CardTitle>
                           <CardDescription>
                             Agreement ID: {agreement._id}
@@ -241,37 +230,37 @@ export function HistoryAnalytics() {
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <div>
-                            <p className="text-sm font-medium">Effective Date</p>
+                            <p className="text-sm font-medium">Created Date</p>
                             <p className="text-sm text-muted-foreground">
-                              {new Date(agreement.effectiveDate).toLocaleDateString()}
+                              {new Date(agreement.createdAt).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-muted-foreground" />
                           <div>
-                            <p className="text-sm font-medium">Term Duration</p>
+                            <p className="text-sm font-medium">Status</p>
                             <p className="text-sm text-muted-foreground">
-                              {agreement.termDuration || 'Not specified'}
+                              {agreement.status || 'Draft'}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-muted-foreground" />
                           <div>
-                            <p className="text-sm font-medium">Clauses</p>
+                            <p className="text-sm font-medium">Template</p>
                             <p className="text-sm text-muted-foreground">
-                              {agreement.clauses.length} clauses
+                              {typeof agreement.templateId === 'object' ? agreement.templateId.templatename : 'Legal Agreement'}
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      {agreement.signedDate && (
+                      {agreement.signatures?.initiatorSignature?.signedAt && (
                         <div className="flex items-center gap-2 text-green-600">
                           <CheckCircle className="w-4 h-4" />
                           <span className="text-sm">
-                            Signed on {new Date(agreement.signedDate).toLocaleDateString()}
+                            Signed on {new Date(agreement.signatures.initiatorSignature.signedAt).toLocaleDateString()}
                           </span>
                         </div>
                       )}
