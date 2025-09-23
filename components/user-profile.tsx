@@ -7,14 +7,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { User, Mail, Calendar, Shield, Edit, Save, X, Upload, Camera, PenTool, Loader2 } from "lucide-react"
+import { User, Mail, Calendar, Shield, Edit, Save, X, Upload, Camera, PenTool, Loader2, Home, ArrowLeft, Eye } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { getUserProfile, updateUserProfile, uploadSignature, uploadProfilePhoto, type User as UserType } from "@/lib/user"
 
 export function UserProfile() {
   const { user } = useAuth()
   const { toast } = useToast()
+  const router = useRouter()
   
   // Get token from localStorage
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
@@ -31,6 +33,12 @@ export function UserProfile() {
   })
   const profileImageRef = useRef<HTMLInputElement>(null)
   const signatureImageRef = useRef<HTMLInputElement>(null)
+
+  // Helper function to validate file types
+  const validateFileType = (file: File): boolean => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg']
+    return allowedTypes.includes(file.type)
+  }
 
   // Load user profile on component mount
   useEffect(() => {
@@ -67,10 +75,21 @@ export function UserProfile() {
   }
 
   const handleImageUpload = async (file: File, type: 'profile' | 'signature') => {
-    if (!file || !file.type.startsWith('image/')) {
+    // Validate file type - only PNG and JPG allowed
+    if (!file || !validateFileType(file)) {
       toast({
-        title: "Invalid File",
-        description: "Please select a valid image file.",
+        title: "Invalid File Type",
+        description: "Please select a PNG or JPG image file only.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please select a file smaller than 10MB.",
         variant: "destructive",
       })
       return
@@ -78,9 +97,15 @@ export function UserProfile() {
 
     try {
       setIsLoading(true)
+      console.log(`Uploading ${type} file:`, {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      })
       
       if (type === 'profile') {
         const response = await uploadProfilePhoto(token!, file)
+        console.log('Profile photo upload response:', response)
         setUserProfile(response.user)
         toast({
           title: "Profile Photo Updated",
@@ -99,6 +124,11 @@ export function UserProfile() {
       }
     } catch (error: any) {
       console.error(`Error uploading ${type}:`, error)
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
       toast({
         title: "Upload Failed",
         description: error.message || `Failed to upload ${type} image.`,
@@ -112,7 +142,9 @@ export function UserProfile() {
   const handleSave = async () => {
     try {
       setIsLoading(true)
+      console.log('Saving profile data:', formData)
       const response = await updateUserProfile(token!, formData)
+      console.log('Profile update response:', response)
       setUserProfile(response.user)
       toast({
         title: "Profile Updated",
@@ -121,6 +153,11 @@ export function UserProfile() {
       setIsEditing(false)
     } catch (error: any) {
       console.error('Error updating profile:', error)
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
       toast({
         title: "Update Failed",
         description: error.message || "Failed to update profile.",
@@ -173,8 +210,14 @@ export function UserProfile() {
       <header className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div>
-              <h1 className="text-xl font-heading font-semibold">Legal Collaboration Platform</h1>
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div>
+                <h1 className="text-xl font-heading font-semibold">Legal Collaboration Platform</h1>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Profile</span>
@@ -186,13 +229,22 @@ export function UserProfile() {
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
+          {/* Breadcrumb Navigation */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+            <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")} className="h-auto p-0 text-muted-foreground hover:text-foreground">
+              <Home className="w-4 h-4 mr-1" />
+              Dashboard
+            </Button>
+            <span>/</span>
+            <span className="text-foreground">Profile</span>
+          </div>
           {/* Profile Header */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative">
-                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden">
+                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden border-2 border-primary/20 shadow-sm">
                       {userProfile?.photo?.url ? (
                         <img 
                           src={userProfile.photo.url} 
@@ -200,23 +252,23 @@ export function UserProfile() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <User className="w-8 h-8 text-primary" />
+                        <User className="w-10 h-10 text-primary" />
                       )}
                     </div>
                     {isEditing && (
                       <Button
                         size="sm"
-                        className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full p-0"
+                        className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full p-0 shadow-md hover:shadow-lg transition-shadow"
                         onClick={() => profileImageRef.current?.click()}
                         disabled={isLoading}
                       >
-                        <Camera className="w-3 h-3" />
+                        <Camera className="w-4 h-4" />
                       </Button>
                     )}
                     <input
                       ref={profileImageRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/png,image/jpeg,image/jpg"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0]
@@ -264,9 +316,12 @@ export function UserProfile() {
           </Card>
 
           {/* Profile Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Profile Information
+              </CardTitle>
               <CardDescription>
                 Manage your personal information and account settings
               </CardDescription>
@@ -306,7 +361,12 @@ export function UserProfile() {
 
               {/* Address Fields */}
               <div className="space-y-4">
-                <h4 className="text-lg font-medium">Address Information</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-lg font-medium">Address Information</h4>
+                  <Badge variant="outline" className="text-xs">
+                    Optional
+                  </Badge>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="street">Street Address</Label>
@@ -319,7 +379,9 @@ export function UserProfile() {
                       />
                     ) : (
                       <div className="p-3 border rounded-md bg-muted/50">
-                        <span>{userProfile?.address?.street || "Not provided"}</span>
+                        <span className={userProfile?.address?.street ? "text-foreground" : "text-muted-foreground"}>
+                          {userProfile?.address?.street || "Not provided"}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -335,7 +397,9 @@ export function UserProfile() {
                       />
                     ) : (
                       <div className="p-3 border rounded-md bg-muted/50">
-                        <span>{userProfile?.address?.city || "Not provided"}</span>
+                        <span className={userProfile?.address?.city ? "text-foreground" : "text-muted-foreground"}>
+                          {userProfile?.address?.city || "Not provided"}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -351,7 +415,9 @@ export function UserProfile() {
                       />
                     ) : (
                       <div className="p-3 border rounded-md bg-muted/50">
-                        <span>{userProfile?.address?.state || "Not provided"}</span>
+                        <span className={userProfile?.address?.state ? "text-foreground" : "text-muted-foreground"}>
+                          {userProfile?.address?.state || "Not provided"}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -367,7 +433,9 @@ export function UserProfile() {
                       />
                     ) : (
                       <div className="p-3 border rounded-md bg-muted/50">
-                        <span>{userProfile?.address?.postalCode || "Not provided"}</span>
+                        <span className={userProfile?.address?.postalCode ? "text-foreground" : "text-muted-foreground"}>
+                          {userProfile?.address?.postalCode || "Not provided"}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -383,7 +451,9 @@ export function UserProfile() {
                       />
                     ) : (
                       <div className="p-3 border rounded-md bg-muted/50">
-                        <span>{userProfile?.address?.country || "Not provided"}</span>
+                        <span className={userProfile?.address?.country ? "text-foreground" : "text-muted-foreground"}>
+                          {userProfile?.address?.country || "Not provided"}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -394,76 +464,91 @@ export function UserProfile() {
 
               {/* Signature Upload Section */}
               <div className="space-y-4">
-                <Label>Digital Signature</Label>
-                <div className="flex items-center gap-4">
-                  <div className="w-32 h-16 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center overflow-hidden">
-                    {userProfile?.signature?.url ? (
-                      <img 
-                        src={userProfile.signature.url} 
-                        alt="Signature" 
-                        className="w-full h-full object-contain"
-                        onLoad={() => console.log('Signature image loaded successfully')}
-                        onError={(e) => console.error('Signature image failed to load:', e)}
-                      />
-                    ) : (
-                      <div className="text-center text-muted-foreground">
-                        <PenTool className="w-6 h-6 mx-auto mb-1" />
-                        <p className="text-xs">No signature</p>
-                        <p className="text-xs text-red-500">Debug: {userProfile ? 'Profile loaded' : 'No profile'}</p>
-                        <p className="text-xs text-red-500">Signature: {userProfile?.signature ? 'Has signature object' : 'No signature object'}</p>
-                        <p className="text-xs text-red-500">URL: {userProfile?.signature?.url || 'No URL'}</p>
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">Digital Signature</Label>
+                  {userProfile?.signature?.url && (
+                    <Badge variant="secondary" className="text-xs">
+                      <PenTool className="w-3 h-3 mr-1" />
+                      Uploaded
+                    </Badge>
+                  )}
+                </div>
+                
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 bg-muted/30">
+                  <div className="flex flex-col md:flex-row items-center gap-6">
+                    {/* Signature Preview */}
+                    <div className="w-40 h-20 border border-muted-foreground/20 rounded-lg flex items-center justify-center overflow-hidden bg-white shadow-sm">
+                      {userProfile?.signature?.url ? (
+                        <img 
+                          src={userProfile.signature.url} 
+                          alt="Signature" 
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="text-center text-muted-foreground">
+                          <PenTool className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm font-medium">No signature</p>
+                          <p className="text-xs text-muted-foreground">Upload to add one</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Upload Controls */}
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <h4 className="font-medium text-sm mb-1">Upload Digital Signature</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Upload your signature for document signing. Only PNG and JPG files are allowed.
+                        </p>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          variant={userProfile?.signature?.url ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => signatureImageRef.current?.click()}
+                          disabled={!isEditing || isLoading}
+                          className="flex-1"
+                        >
+                          {isLoading ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4 mr-2" />
+                          )}
+                          {userProfile?.signature?.url ? 'Change Signature' : 'Upload Signature'}
+                        </Button>
+                        
                         {userProfile?.signature?.url && (
-                          <a 
-                            href={userProfile.signature.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-500 underline"
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(userProfile.signature?.url, '_blank')}
+                            className="flex-1"
                           >
-                            Open in new tab
-                          </a>
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
                         )}
                       </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Upload your digital signature for document signing
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => signatureImageRef.current?.click()}
-                        disabled={!isEditing || isLoading}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Upload className="w-4 h-4 mr-2" />
-                        )}
-                        {userProfile?.signature?.url ? 'Change Signature' : 'Upload Signature'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={loadUserProfile}
-                        disabled={isLoading}
-                      >
-                        <Loader2 className="w-4 h-4 mr-2" />
-                        Refresh
-                      </Button>
+                      
+                      {!isEditing && (
+                        <p className="text-xs text-muted-foreground">
+                          Click "Edit Profile" to upload or change your signature
+                        </p>
+                      )}
                     </div>
-                    <input
-                      ref={signatureImageRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) handleImageUpload(file, 'signature')
-                      }}
-                    />
                   </div>
+                  
+                  <input
+                    ref={signatureImageRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleImageUpload(file, 'signature')
+                    }}
+                  />
                 </div>
               </div>
 
@@ -510,26 +595,29 @@ export function UserProfile() {
           </Card>
 
           {/* Account Statistics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Statistics</CardTitle>
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Account Statistics
+              </CardTitle>
               <CardDescription>
                 Overview of your account activity and usage
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-primary">0</div>
-                  <div className="text-sm text-muted-foreground">Agreements Created</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-md transition-shadow">
+                  <div className="text-3xl font-bold text-primary mb-2">0</div>
+                  <div className="text-sm font-medium text-muted-foreground">Agreements Created</div>
                 </div>
-                <div className="text-center p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-primary">0</div>
-                  <div className="text-sm text-muted-foreground">Agreements Signed</div>
+                <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-md transition-shadow">
+                  <div className="text-3xl font-bold text-green-600 mb-2">0</div>
+                  <div className="text-sm font-medium text-muted-foreground">Agreements Signed</div>
                 </div>
-                <div className="text-center p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-primary">0</div>
-                  <div className="text-sm text-muted-foreground">Templates Used</div>
+                <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-md transition-shadow">
+                  <div className="text-3xl font-bold text-blue-600 mb-2">0</div>
+                  <div className="text-sm font-medium text-muted-foreground">Templates Used</div>
                 </div>
               </div>
             </CardContent>
