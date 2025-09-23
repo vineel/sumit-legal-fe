@@ -16,10 +16,14 @@ import {
   Users,
   Mail,
   Edit,
-  RefreshCw
+  RefreshCw,
+  PenTool
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AgreementChat } from "@/components/agreement-chat"
+import { SignatureOverlay } from "@/components/signature-overlay"
+import { getUserProfile } from "@/lib/user"
+import { io } from "socket.io-client"
 
 interface ClauseVariant {
   variant_label: string
@@ -80,6 +84,18 @@ interface Agreement {
   }
   matchingResults: MatchingResult[]
   updatedAt?: string
+  signatures?: {
+    initiatorSignature: {
+      signed: boolean
+      signedAt?: string
+      signatureUrl?: string
+    }
+    invitedUserSignature: {
+      signed: boolean
+      signedAt?: string
+      signatureUrl?: string
+    }
+  }
 }
 
 export default function AgreementViewPage() {
@@ -91,11 +107,16 @@ export default function AgreementViewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [showSignatureOverlay, setShowSignatureOverlay] = useState(false)
+  const [userProfile, setUserProfile] = useState<any>(null)
+  const [userSignature, setUserSignature] = useState<string | null>(null)
+  const [socket, setSocket] = useState<any>(null)
 
   const agreementId = params.agreementId as string
 
   useEffect(() => {
     fetchAgreement()
+    loadUserProfile()
     // Get current user ID from token
     const token = localStorage.getItem('auth_token')
     if (token) {
@@ -107,6 +128,51 @@ export default function AgreementViewPage() {
       }
     }
   }, [agreementId])
+
+  // Socket connection for real-time updates
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
+
+    const socketInstance = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000', {
+      auth: {
+        token: token
+      }
+    })
+
+    setSocket(socketInstance)
+
+    // Join agreement room
+    socketInstance.emit('join-agreement-chat', { agreementId })
+
+    // Listen for signature updates
+    socketInstance.on('signature-updated', (data) => {
+      console.log('📝 Signature update received:', data)
+      toast({
+        title: "Agreement Updated",
+        description: `${data.userName} has signed the agreement`,
+      })
+      // Refresh agreement data
+      fetchAgreement()
+    })
+
+    return () => {
+      socketInstance.disconnect()
+    }
+  }, [agreementId])
+
+  const loadUserProfile = async () => {
+    try {
+      const token = localStorage.getItem('auth_token')
+      if (!token) return
+
+      const response = await getUserProfile(token)
+      setUserProfile(response.user)
+      setUserSignature(response.user.signature?.url || null)
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+    }
+  }
 
   // Refresh agreement data when page becomes visible (e.g., returning from update intake)
   useEffect(() => {
@@ -229,6 +295,39 @@ export default function AgreementViewPage() {
     }
   }
 
+  const handleSignAgreement = () => {
+    if (!userSignature) {
+      toast({
+        title: "No Signature Found",
+        description: "Please upload a signature in your profile first.",
+        variant: "destructive",
+      })
+      router.push('/profile')
+      return
+    }
+    setShowSignatureOverlay(true)
+  }
+
+  const handleSignSuccess = () => {
+    // Refresh agreement data to show updated status
+    fetchAgreement()
+    toast({
+      title: "Agreement Signed!",
+      description: "Your signature has been recorded successfully.",
+    })
+  }
+
+  const isUserInitiator = currentUserId === agreement?.initiatorId._id
+  const isUserInvited = currentUserId === agreement?.invitedUserId._id
+  const isUserPartOfAgreement = isUserInitiator || isUserInvited
+  
+  // Check if user has already signed
+  const hasUserSigned = isUserInitiator 
+    ? agreement?.signatures?.initiatorSignature?.signed 
+    : agreement?.signatures?.invitedUserSignature?.signed
+  
+  const isAgreementFullySigned = agreement?.status === 'signed'
+
 
   if (loading) {
     return (
@@ -284,10 +383,38 @@ export default function AgreementViewPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button onClick={() => router.push(`/agreement-update-intake/${agreementId}`)} variant="default" className="gap-2">
-              <Edit className="w-4 h-4" />
-              Update Intake Form
-            </Button>
+            {/* Sign Agreement Button - only show if user is part of agreement and hasn't signed */}
+            {isUserPartOfAgreement && !hasUserSigned && !isAgreementFullySigned && (
+              <Button onClick={handleSignAgreement} variant="default" className="gap-2 bg-green-600 hover:bg-green-700">
+                <PenTool className="w-4 h-4" />
+                Sign Agreement
+              </Button>
+            )}
+            
+            {/* Show signed status if user has signed */}
+            {isUserPartOfAgreement && hasUserSigned && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-100 text-green-800 rounded-md border border-green-200">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">You have signed this agreement</span>
+              </div>
+            )}
+            
+            {/* Show fully signed status */}
+            {isAgreementFullySigned && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-800 rounded-md border border-blue-200">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">Agreement fully signed by both parties</span>
+              </div>
+            )}
+            
+            {/* Update Intake Form Button - hide if agreement is signed */}
+            {!isAgreementFullySigned && (
+              <Button onClick={() => router.push(`/agreement-update-intake/${agreementId}`)} variant="default" className="gap-2">
+                <Edit className="w-4 h-4" />
+                Update Intake Form
+              </Button>
+            )}
+            
             <Button onClick={fetchAgreement} variant="outline" className="gap-2" disabled={loading}>
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
@@ -445,6 +572,15 @@ export default function AgreementViewPage() {
           />
         )}
 
+        {/* Signature Overlay */}
+        <SignatureOverlay
+          isOpen={showSignatureOverlay}
+          onClose={() => setShowSignatureOverlay(false)}
+          agreementId={agreementId}
+          userSignature={userSignature || undefined}
+          userName={userProfile?.name || 'User'}
+          onSignSuccess={handleSignSuccess}
+        />
 
       </div>
     </div>

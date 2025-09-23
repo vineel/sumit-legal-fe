@@ -312,3 +312,21 @@ export async function getAIClauseSuggestions(token: string, agreementId: string)
     throw error;
   }
 }
+
+// --- Sign Agreement ---
+export async function signAgreement(token: string, agreementId: string): Promise<{ 
+  success: boolean; 
+  message: string; 
+  agreement: any;
+  redirectTo?: string;
+}> {
+  try {
+    const response = await api.post(`/agreement/${agreementId}/sign`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error signing agreement:', error);
+    throw new Error(error.response?.data?.message || 'Failed to sign agreement');
+  }
+}
