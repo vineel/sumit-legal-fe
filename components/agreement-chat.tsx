@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { 
   MessageCircle, 
@@ -156,12 +156,6 @@ export function AgreementChat({ agreementId, currentUserId, otherPartyName }: Ag
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
-  }
 
   const toggleChat = () => {
     setIsOpen(!isOpen)
@@ -270,7 +264,7 @@ export function AgreementChat({ agreementId, currentUserId, otherPartyName }: Ag
                                   : 'bg-muted text-muted-foreground rounded-bl-sm'
                               }`}
                             >
-                              <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap break-words">{message.message}</p>
                               <p className={`text-xs mt-1 ${isMyMessage ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}`}>
                                 {formatTime(message.timestamp)}
                               </p>
@@ -286,19 +280,25 @@ export function AgreementChat({ agreementId, currentUserId, otherPartyName }: Ag
                 {/* Message Input */}
                 <div className="border-t p-3 flex-shrink-0 bg-white">
                   <div className="flex gap-2">
-                    <Input
+                    <Textarea
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          sendMessage()
+                        }
+                      }}
                       placeholder="Type a message..."
                       disabled={!isConnected}
-                      className="flex-1 text-sm"
+                      className="flex-1 text-sm min-h-[40px] max-h-[120px] resize-none"
+                      rows={1}
                     />
                     <Button
                       onClick={sendMessage}
                       disabled={!newMessage.trim() || !isConnected}
                       size="sm"
-                      className="h-8 w-8 p-0"
+                      className="h-8 w-8 p-0 self-end"
                     >
                       <Send className="w-4 h-4" />
                     </Button>
