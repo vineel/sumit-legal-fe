@@ -145,7 +145,7 @@ export default function PortalEntryPage() {
 
         {/* Footer */}
         <div className="text-center mt-12 text-sm text-muted-foreground">
-          <p>© 2025 IBD Contracting. All rights reserved.</p>
+          <p>© 2025 Brad Simon. All rights reserved.</p>
           <p className="mt-2">
             Need help? Contact our support team at{" "}
             <a href="mailto:support@ibdcontracting.com" className="text-accent hover:underline">
