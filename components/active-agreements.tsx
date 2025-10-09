@@ -44,7 +44,7 @@ interface Agreement {
     selectedClauses: any[]
   }
   matchingResults?: Array<{
-    matchStatus: 'green' | 'yellow' | 'red'
+    matchStatus: 'green' | 'red'
   }>
   signatures?: {
     initiatorSignature: {
@@ -264,10 +264,9 @@ export function ActiveAgreements() {
     }
 
     const greenCount = agreement.matchingResults.filter(r => r.matchStatus === 'green').length
-    const yellowCount = agreement.matchingResults.filter(r => r.matchStatus === 'yellow').length
     const redCount = agreement.matchingResults.filter(r => r.matchStatus === 'red').length
 
-    return { greenCount, yellowCount, redCount }
+    return { greenCount, redCount }
   }
 
   const isAgreementReady = (agreement: Agreement) => {
@@ -403,15 +402,11 @@ export function ActiveAgreements() {
                     <div className="flex items-center gap-4 text-xs">
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span>{trafficLight.greenCount} Perfect</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                        <span>{trafficLight.yellowCount} Partial</span>
+                        <span>{trafficLight.greenCount} Selected</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                        <span>{trafficLight.redCount} Conflicts</span>
+                        <span>{trafficLight.redCount} Red Light</span>
                       </div>
                     </div>
                   )}
