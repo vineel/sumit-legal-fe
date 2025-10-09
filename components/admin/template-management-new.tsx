@@ -20,8 +20,10 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronRight,
-  Eye
+  Eye,
+  GripVertical
 } from "lucide-react"
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
 import { useToast } from "@/hooks/use-toast"
 import { getTemplates, createTemplate, updateAdminTemplate, Template, ClauseType } from "@/lib/templateApi"
 import { useRouter } from "next/navigation"
@@ -187,6 +189,33 @@ export function TemplateManagementNew() {
     const updatedQuestions = [...(formData.global_questions || [])]
     updatedQuestions[index] = { ...updatedQuestions[index], [field]: value }
     setFormData({ ...formData, global_questions: updatedQuestions })
+  }
+
+  // Drag and drop handler for clause sections
+  const handleDragEnd = (result: DropResult) => {
+    try {
+      if (!result.destination) return
+
+      const { source, destination } = result
+      if (source.index === destination.index) return
+
+      // Validate indices
+      if (source.index < 0 || destination.index < 0) return
+      if (source.index >= (formData.clauses || []).length || destination.index >= (formData.clauses || []).length) return
+
+      const updatedClauses = Array.from(formData.clauses || [])
+      const [reorderedClause] = updatedClauses.splice(source.index, 1)
+      updatedClauses.splice(destination.index, 0, reorderedClause)
+
+      setFormData({ ...formData, clauses: updatedClauses })
+    } catch (error) {
+      console.error('Error in drag and drop:', error)
+      toast({
+        title: "Error",
+        description: "Failed to reorder sections. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
 
@@ -714,111 +743,139 @@ export function TemplateManagementNew() {
                 <div className="mb-4">
                   <div>
                     <h3 className="font-semibold text-green-900">📝 Agreement Sections</h3>
-                    <p className="text-sm text-green-700">Add different sections of the agreement</p>
+                    <p className="text-sm text-green-700">Add different sections of the agreement. Drag and drop to reorder sections.</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  {(formData.clauses || []).map((clause, clauseIndex) => (
-                    <Card key={clauseIndex} className="border-2 border-green-300 bg-white">
-                      <CardHeader className="pb-3 bg-green-100">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 flex-1">
-                            <div className="flex-1">
-                              <label className="text-sm font-medium text-green-800 mb-2 block">Section Name</label>
-                              <Input
-                                value={clause.clause_name}
-                                onChange={(e) => updateClauseType(clauseIndex, "clause_name", e.target.value)}
-                                placeholder="Enter section name"
-                                className="font-medium"
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeClauseType(clauseIndex)}
-                            className="text-red-600 hover:text-red-700 ml-4"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      
-                      <CardContent className="space-y-3">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <span className="text-sm font-medium text-green-800">Options for this section ({clause.variants.length})</span>
-                          </div>
-                        </div>
-
-                        {clause.variants.map((variant, variantIndex) => (
-                          <Card key={variantIndex} className="bg-orange-50 border-orange-200">
-                            <CardContent className="p-4 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 flex-1">
-                                  <div className="flex-1">
-                                    <label className="text-sm font-medium text-orange-800 mb-2 block">Option Name</label>
-                                    <Input
-                                      value={variant.variant_label}
-                                      onChange={(e) => updateVariant(clauseIndex, variantIndex, "variant_label", e.target.value)}
-                                      placeholder="Enter option name"
-                                      className="font-medium"
-                                    />
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <Droppable droppableId="clause-sections-create">
+                    {(provided) => (
+                      <div 
+                        {...provided.droppableProps} 
+                        ref={provided.innerRef}
+                        className="space-y-4"
+                      >
+                        {(formData.clauses || []).map((clause, clauseIndex) => (
+                          <Draggable key={clauseIndex} draggableId={`clause-create-${clauseIndex}`} index={clauseIndex}>
+                            {(provided, snapshot) => (
+                              <Card 
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={`border-2 border-green-300 bg-white transition-shadow ${
+                                  snapshot.isDragging ? 'shadow-lg' : ''
+                                }`}
+                              >
+                                <CardHeader className="pb-3 bg-green-100">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <div 
+                                        {...provided.dragHandleProps}
+                                        className="cursor-grab hover:cursor-grabbing p-1 hover:bg-green-200 rounded"
+                                        title="Drag to reorder"
+                                      >
+                                        <GripVertical className="w-4 h-4 text-green-600" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <label className="text-sm font-medium text-green-800 mb-2 block">Section Name</label>
+                                        <Input
+                                          value={clause.clause_name}
+                                          onChange={(e) => updateClauseType(clauseIndex, "clause_name", e.target.value)}
+                                          placeholder="Enter section name"
+                                          className="font-medium"
+                                        />
+                                      </div>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeClauseType(clauseIndex)}
+                                      className="text-red-600 hover:text-red-700 ml-4"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
                                   </div>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeVariant(clauseIndex, variantIndex)}
-                                  className="text-red-600 hover:text-red-700 ml-4"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
+                                </CardHeader>
+                                
+                                <CardContent className="space-y-3">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                      <span className="text-sm font-medium text-green-800">Options for this section ({clause.variants.length})</span>
+                                    </div>
+                                  </div>
 
-                              <div>
-                                <label className="text-sm font-medium text-orange-800 mb-2 block">Legal Text</label>
-                                <Textarea
-                                  value={variant.text}
-                                  onChange={(e) => updateVariant(clauseIndex, variantIndex, "text", e.target.value)}
-                                  placeholder="Enter legal text"
-                                  rows={4}
-                                />
-                              </div>
+                                  {clause.variants.map((variant, variantIndex) => (
+                                    <Card key={variantIndex} className="bg-orange-50 border-orange-200">
+                                      <CardContent className="p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2 flex-1">
+                                            <div className="flex-1">
+                                              <label className="text-sm font-medium text-orange-800 mb-2 block">Option Name</label>
+                                              <Input
+                                                value={variant.variant_label}
+                                                onChange={(e) => updateVariant(clauseIndex, variantIndex, "variant_label", e.target.value)}
+                                                placeholder="Enter option name"
+                                                className="font-medium"
+                                              />
+                                            </div>
+                                          </div>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeVariant(clauseIndex, variantIndex)}
+                                            className="text-red-600 hover:text-red-700 ml-4"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                        </div>
 
-                              <div>
-                                <label className="text-sm font-medium text-orange-800 mb-2 block">Best Used When</label>
-                                <Input
-                                  value={variant.best_used_when}
-                                  onChange={(e) => updateVariant(clauseIndex, variantIndex, "best_used_when", e.target.value)}
-                                  placeholder="e.g., When dealing with international clients"
-                                  className="font-medium"
-                                />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                        
-                        {/* Add Another Option Button at Bottom */}
-                        <div className="flex justify-center pt-4">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="lg"
-                            onClick={() => addVariant(clauseIndex)}
-                            className="bg-orange-50 border-2 border-orange-300 text-orange-700 hover:bg-orange-100 hover:border-orange-400 hover:text-orange-800 font-medium shadow-sm"
-                          >
-                            <Plus className="w-5 h-5 mr-2" />
-                            Add Option
-                          </Button>
-                        </div>
-                      </CardContent>
+                                        <div>
+                                          <label className="text-sm font-medium text-orange-800 mb-2 block">Legal Text</label>
+                                          <Textarea
+                                            value={variant.text}
+                                            onChange={(e) => updateVariant(clauseIndex, variantIndex, "text", e.target.value)}
+                                            placeholder="Enter legal text"
+                                            rows={4}
+                                          />
+                                        </div>
+
+                                        <div>
+                                          <label className="text-sm font-medium text-orange-800 mb-2 block">Best Used When</label>
+                                          <Input
+                                            value={variant.best_used_when}
+                                            onChange={(e) => updateVariant(clauseIndex, variantIndex, "best_used_when", e.target.value)}
+                                            placeholder="e.g., When dealing with international clients"
+                                            className="font-medium"
+                                          />
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                  
+                                  {/* Add Another Option Button at Bottom */}
+                                  <div className="flex justify-center pt-4">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="lg"
+                                      onClick={() => addVariant(clauseIndex)}
+                                      className="bg-orange-50 border-2 border-orange-300 text-orange-700 hover:bg-orange-100 hover:border-orange-400 hover:text-orange-800 font-medium shadow-sm"
+                                    >
+                                      <Plus className="w-5 h-5 mr-2" />
+                                      Add Option
+                                    </Button>
+                                  </div>
+                                </CardContent>
                               </Card>
-                  ))}
-                </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
               </div>
 
               {/* Add Another Section Button */}
@@ -998,111 +1055,139 @@ export function TemplateManagementNew() {
                 <div className="mb-4">
                   <div>
                     <h3 className="font-semibold text-green-900">📝 Agreement Sections</h3>
-                    <p className="text-sm text-green-700">Add different sections of the agreement</p>
+                    <p className="text-sm text-green-700">Add different sections of the agreement. Drag and drop to reorder sections.</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  {(formData.clauses || []).map((clause, clauseIndex) => (
-                    <Card key={clauseIndex} className="border-2 border-green-300 bg-white">
-                      <CardHeader className="pb-3 bg-green-100">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 flex-1">
-                            <div className="flex-1">
-                              <label className="text-sm font-medium text-green-800 mb-2 block">Section Name</label>
-                              <Input
-                                value={clause.clause_name}
-                                onChange={(e) => updateClauseType(clauseIndex, "clause_name", e.target.value)}
-                                placeholder="Enter section name"
-                                className="font-medium"
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeClauseType(clauseIndex)}
-                            className="text-red-600 hover:text-red-700 ml-4"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      
-                      <CardContent className="space-y-3">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <span className="text-sm font-medium text-green-800">Options for this section ({clause.variants.length})</span>
-                          </div>
-                        </div>
-
-                        {clause.variants.map((variant, variantIndex) => (
-                          <Card key={variantIndex} className="bg-orange-50 border-orange-200">
-                            <CardContent className="p-4 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 flex-1">
-                                  <div className="flex-1">
-                                    <label className="text-sm font-medium text-orange-800 mb-2 block">Option Name</label>
-                                    <Input
-                                      value={variant.variant_label}
-                                      onChange={(e) => updateVariant(clauseIndex, variantIndex, "variant_label", e.target.value)}
-                                      placeholder="Enter option name"
-                                      className="font-medium"
-                                    />
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <Droppable droppableId="clause-sections-edit">
+                    {(provided) => (
+                      <div 
+                        {...provided.droppableProps} 
+                        ref={provided.innerRef}
+                        className="space-y-4"
+                      >
+                        {(formData.clauses || []).map((clause, clauseIndex) => (
+                          <Draggable key={clauseIndex} draggableId={`clause-edit-${clauseIndex}`} index={clauseIndex}>
+                            {(provided, snapshot) => (
+                              <Card 
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={`border-2 border-green-300 bg-white transition-shadow ${
+                                  snapshot.isDragging ? 'shadow-lg' : ''
+                                }`}
+                              >
+                                <CardHeader className="pb-3 bg-green-100">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <div 
+                                        {...provided.dragHandleProps}
+                                        className="cursor-grab hover:cursor-grabbing p-1 hover:bg-green-200 rounded"
+                                        title="Drag to reorder"
+                                      >
+                                        <GripVertical className="w-4 h-4 text-green-600" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <label className="text-sm font-medium text-green-800 mb-2 block">Section Name</label>
+                                        <Input
+                                          value={clause.clause_name}
+                                          onChange={(e) => updateClauseType(clauseIndex, "clause_name", e.target.value)}
+                                          placeholder="Enter section name"
+                                          className="font-medium"
+                                        />
+                                      </div>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeClauseType(clauseIndex)}
+                                      className="text-red-600 hover:text-red-700 ml-4"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
                                   </div>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeVariant(clauseIndex, variantIndex)}
-                                  className="text-red-600 hover:text-red-700 ml-4"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
+                                </CardHeader>
+                                
+                                <CardContent className="space-y-3">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                      <span className="text-sm font-medium text-green-800">Options for this section ({clause.variants.length})</span>
+                                    </div>
+                                  </div>
 
-                              <div>
-                                <label className="text-sm font-medium text-orange-800 mb-2 block">Legal Text</label>
-                                <Textarea
-                                  value={variant.text}
-                                  onChange={(e) => updateVariant(clauseIndex, variantIndex, "text", e.target.value)}
-                                  placeholder="Enter legal text"
-                                  rows={4}
-                                />
-                              </div>
+                                  {clause.variants.map((variant, variantIndex) => (
+                                    <Card key={variantIndex} className="bg-orange-50 border-orange-200">
+                                      <CardContent className="p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2 flex-1">
+                                            <div className="flex-1">
+                                              <label className="text-sm font-medium text-orange-800 mb-2 block">Option Name</label>
+                                              <Input
+                                                value={variant.variant_label}
+                                                onChange={(e) => updateVariant(clauseIndex, variantIndex, "variant_label", e.target.value)}
+                                                placeholder="Enter option name"
+                                                className="font-medium"
+                                              />
+                                            </div>
+                                          </div>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeVariant(clauseIndex, variantIndex)}
+                                            className="text-red-600 hover:text-red-700 ml-4"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                        </div>
 
-                              <div>
-                                <label className="text-sm font-medium text-orange-800 mb-2 block">Best Used When</label>
-                                <Input
-                                  value={variant.best_used_when}
-                                  onChange={(e) => updateVariant(clauseIndex, variantIndex, "best_used_when", e.target.value)}
-                                  placeholder="e.g., When dealing with international clients"
-                                  className="font-medium"
-                                />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                        
-                        {/* Add Another Option Button at Bottom */}
-                        <div className="flex justify-center pt-4">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="lg"
-                            onClick={() => addVariant(clauseIndex)}
-                            className="bg-orange-50 border-2 border-orange-300 text-orange-700 hover:bg-orange-100 hover:border-orange-400 hover:text-orange-800 font-medium shadow-sm"
-                          >
-                            <Plus className="w-5 h-5 mr-2" />
-                            Add Option
-                          </Button>
-                        </div>
-                      </CardContent>
+                                        <div>
+                                          <label className="text-sm font-medium text-orange-800 mb-2 block">Legal Text</label>
+                                          <Textarea
+                                            value={variant.text}
+                                            onChange={(e) => updateVariant(clauseIndex, variantIndex, "text", e.target.value)}
+                                            placeholder="Enter legal text"
+                                            rows={4}
+                                          />
+                                        </div>
+
+                                        <div>
+                                          <label className="text-sm font-medium text-orange-800 mb-2 block">Best Used When</label>
+                                          <Input
+                                            value={variant.best_used_when}
+                                            onChange={(e) => updateVariant(clauseIndex, variantIndex, "best_used_when", e.target.value)}
+                                            placeholder="e.g., When dealing with international clients"
+                                            className="font-medium"
+                                          />
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                  
+                                  {/* Add Another Option Button at Bottom */}
+                                  <div className="flex justify-center pt-4">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="lg"
+                                      onClick={() => addVariant(clauseIndex)}
+                                      className="bg-orange-50 border-2 border-orange-300 text-orange-700 hover:bg-orange-100 hover:border-orange-400 hover:text-orange-800 font-medium shadow-sm"
+                                    >
+                                      <Plus className="w-5 h-5 mr-2" />
+                                      Add Option
+                                    </Button>
+                                  </div>
+                                </CardContent>
                               </Card>
-                  ))}
-                </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
               </div>
 
               {/* Add Another Section Button */}
