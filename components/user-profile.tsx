@@ -11,7 +11,7 @@ import { User, Mail, Calendar, Shield, Edit, Save, X, Upload, Camera, PenTool, L
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { getUserProfile, updateUserProfile, uploadSignature, uploadProfilePhoto, type User as UserType } from "@/lib/user"
+import { getUserProfile, updateUserProfile, uploadSignature, uploadProfilePhoto, getUserStatistics, type User as UserType, type UserStatistics } from "@/lib/user"
 
 export function UserProfile() {
   const { user } = useAuth()
@@ -23,6 +23,8 @@ export function UserProfile() {
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [userProfile, setUserProfile] = useState<UserType | null>(null)
+  const [statistics, setStatistics] = useState<UserStatistics | null>(null)
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     street: "",
@@ -44,6 +46,7 @@ export function UserProfile() {
   useEffect(() => {
     if (token) {
       loadUserProfile()
+      loadUserStatistics()
     }
   }, [token])
 
@@ -71,6 +74,24 @@ export function UserProfile() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadUserStatistics = async () => {
+    try {
+      setIsLoadingStats(true)
+      const response = await getUserStatistics(token!)
+      console.log('Loaded user statistics:', response.statistics)
+      setStatistics(response.statistics)
+    } catch (error) {
+      console.error('Error loading user statistics:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load account statistics",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingStats(false)
     }
   }
 
@@ -606,20 +627,61 @@ export function UserProfile() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-md transition-shadow">
-                  <div className="text-3xl font-bold text-primary mb-2">0</div>
-                  <div className="text-sm font-medium text-muted-foreground">Agreements Created</div>
+              {isLoadingStats ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-muted-foreground">Loading statistics...</span>
+                  </div>
                 </div>
-                <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-md transition-shadow">
-                  <div className="text-3xl font-bold text-green-600 mb-2">0</div>
-                  <div className="text-sm font-medium text-muted-foreground">Agreements Signed</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-md transition-shadow">
+                    <div className="text-3xl font-bold text-primary mb-2">
+                      {statistics?.agreementsCreated ?? 0}
+                    </div>
+                    <div className="text-sm font-medium text-muted-foreground">Agreements Created</div>
+                  </div>
+                  <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-md transition-shadow">
+                    <div className="text-3xl font-bold text-green-600 mb-2">
+                      {statistics?.agreementsSigned ?? 0}
+                    </div>
+                    <div className="text-sm font-medium text-muted-foreground">Agreements Signed</div>
+                  </div>
+                  <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-md transition-shadow">
+                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                      {statistics?.templatesUsed ?? 0}
+                    </div>
+                    <div className="text-sm font-medium text-muted-foreground">Templates Used</div>
+                  </div>
                 </div>
-                <div className="text-center p-6 border rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-md transition-shadow">
-                  <div className="text-3xl font-bold text-blue-600 mb-2">0</div>
-                  <div className="text-sm font-medium text-muted-foreground">Templates Used</div>
+              )}
+              
+              {/* Additional Statistics */}
+              {statistics && !isLoadingStats && (
+                <div className="mt-6 pt-6 border-t">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 border rounded-lg bg-gradient-to-br from-orange-50 to-orange-100">
+                      <div className="text-2xl font-bold text-orange-600 mb-1">
+                        {statistics.totalAgreementsParticipated}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Total Participated</div>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg bg-gradient-to-br from-yellow-50 to-yellow-100">
+                      <div className="text-2xl font-bold text-yellow-600 mb-1">
+                        {statistics.pendingAgreements}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Pending</div>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg bg-gradient-to-br from-purple-50 to-purple-100">
+                      <div className="text-2xl font-bold text-purple-600 mb-1">
+                        {statistics.completedAgreements}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Completed</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>

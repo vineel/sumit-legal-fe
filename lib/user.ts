@@ -117,3 +117,26 @@ export async function uploadProfilePhoto(
     throw new Error(error.response?.data?.message || 'Failed to upload profile photo');
   }
 }
+
+// User statistics interface
+export interface UserStatistics {
+  agreementsCreated: number;
+  agreementsSigned: number;
+  templatesUsed: number;
+  totalAgreementsParticipated: number;
+  pendingAgreements: number;
+  completedAgreements: number;
+}
+
+// Get user statistics
+export async function getUserStatistics(token: string): Promise<{ statistics: UserStatistics }> {
+  try {
+    const response = await api.get('/user/statistics', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching user statistics:', error);
+    throw new Error(error.response?.data?.message || 'Failed to fetch user statistics');
+  }
+}
