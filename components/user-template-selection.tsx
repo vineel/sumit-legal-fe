@@ -31,6 +31,7 @@ interface Template {
     variants: Array<{
       variant_label: string
       text: string
+      best_used_when?: string
     }>
   }>
   global_questions?: Array<{

@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation"
 interface ClauseVariant {
   variant_label: string
   text: string
+  best_used_when?: string
 }
 
 interface GlobalQuestion {
@@ -134,7 +135,8 @@ export function TemplateManagementNew() {
   const addVariant = (clauseIndex: number) => {
     const newVariant: ClauseVariant = {
       variant_label: "",
-      text: ""
+      text: "",
+      best_used_when: ""
     }
     const updatedClauses = [...(formData.clauses || [])]
     updatedClauses[clauseIndex].variants.push(newVariant)
@@ -228,10 +230,10 @@ export function TemplateManagementNew() {
       }
       // Validate each variant
       for (const variant of clause.variants) {
-        if (!variant.variant_label.trim() || !variant.text.trim()) {
+        if (!variant.variant_label?.trim() || !variant.text?.trim() || !variant.best_used_when?.trim()) {
           toast({
             title: "Validation Error",
-            description: "All variants must have a label and text",
+            description: "All variants must have a label, text, and best used when description",
             variant: "destructive"
           })
           return
@@ -309,11 +311,20 @@ export function TemplateManagementNew() {
     const clauses = template.clauses || []
     const globalQuestions = (template as any).global_questions || []
     
+    // Ensure all variants have the best_used_when field for existing templates
+    const processedClauses = clauses.map(clause => ({
+      ...clause,
+      variants: clause.variants.map(variant => ({
+        ...variant,
+        best_used_when: variant.best_used_when || ""
+      }))
+    }))
+    
     setFormData({
       agreement_type: agreementType,
       description: description,
       category: category,
-      clauses: clauses,
+      clauses: processedClauses,
       global_questions: globalQuestions
     })
     setIsEditDialogOpen(true)
@@ -366,10 +377,10 @@ export function TemplateManagementNew() {
       }
       // Validate each variant
       for (const variant of clause.variants) {
-        if (!variant.variant_label.trim() || !variant.text.trim()) {
+        if (!variant.variant_label?.trim() || !variant.text?.trim() || !variant.best_used_when?.trim()) {
           toast({
             title: "Validation Error",
-            description: "All options must have a name and text",
+            description: "All options must have a name, text, and best used when description",
             variant: "destructive"
           })
           return
@@ -777,6 +788,16 @@ export function TemplateManagementNew() {
                                   rows={4}
                                 />
                               </div>
+
+                              <div>
+                                <label className="text-sm font-medium text-orange-800 mb-2 block">Best Used When</label>
+                                <Input
+                                  value={variant.best_used_when}
+                                  onChange={(e) => updateVariant(clauseIndex, variantIndex, "best_used_when", e.target.value)}
+                                  placeholder="e.g., When dealing with international clients"
+                                  className="font-medium"
+                                />
+                              </div>
                             </CardContent>
                           </Card>
                         ))}
@@ -1049,6 +1070,16 @@ export function TemplateManagementNew() {
                                   onChange={(e) => updateVariant(clauseIndex, variantIndex, "text", e.target.value)}
                                   placeholder="Enter legal text"
                                   rows={4}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-medium text-orange-800 mb-2 block">Best Used When</label>
+                                <Input
+                                  value={variant.best_used_when}
+                                  onChange={(e) => updateVariant(clauseIndex, variantIndex, "best_used_when", e.target.value)}
+                                  placeholder="e.g., When dealing with international clients"
+                                  className="font-medium"
                                 />
                               </div>
                             </CardContent>

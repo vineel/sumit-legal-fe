@@ -18,6 +18,7 @@ import { getTemplates, Template } from "@/lib/templateApi"
 interface ClauseVariant {
   variant_label: string
   text: string
+  best_used_when?: string
 }
 
 interface ClauseType {
@@ -243,6 +244,19 @@ export default function TemplateViewPage() {
                           {clause.variants.map((variant, variantIndex) => (
                             <div key={variantIndex} className="bg-muted/50 rounded-lg p-4">
                               <h4 className="font-medium mb-3">{variant.variant_label}</h4>
+                              
+                              {variant.best_used_when && (
+                                <div className="mb-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                    <span className="text-sm font-medium text-blue-700">Best Used When:</span>
+                                  </div>
+                                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                                    <p className="text-sm text-blue-800">{variant.best_used_when}</p>
+                                  </div>
+                                </div>
+                              )}
+                              
                               <div className="bg-background rounded border p-3">
                                 <p className="text-sm whitespace-pre-wrap">{variant.text}</p>
                               </div>

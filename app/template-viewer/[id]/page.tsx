@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast"
 interface ClauseVariant {
   variant_label: string
   text: string
+  best_used_when?: string
 }
 
 interface Clause {
@@ -333,6 +334,19 @@ export default function TemplateViewerPage() {
           </div>
           <div className="flex-1">
             <h4 className="font-medium text-gray-900">{variant.variant_label}</h4>
+            
+            {variant.best_used_when && (
+              <div className="mt-2 mb-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-blue-700">Best Used When:</span>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                  <p className="text-sm text-blue-800">{variant.best_used_when}</p>
+                </div>
+              </div>
+            )}
+            
             <p className="text-sm text-gray-600 mt-1">{variant.text}</p>
           </div>
           <div className="flex gap-2">

@@ -19,6 +19,7 @@ export interface Clause {
 export interface ClauseVariant {
   variant_label: string;
   text: string;
+  best_used_when?: string;
 }
 
 export interface ClauseType {

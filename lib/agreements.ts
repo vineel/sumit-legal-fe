@@ -275,34 +275,6 @@ export async function sendInvite(
   }
 }
 
-// --- Get AI Clause Suggestions ---
-export async function getAIClauseSuggestions(token: string, agreementId: string): Promise<{
-  success: boolean;
-  suggestions: string;
-  agreementInfo: {
-    templateName: string;
-    templateDescription: string;
-    partyA: string;
-    partyB: string;
-    totalClauses: number;
-  };
-  clauseSummary: Array<{
-    name: string;
-    status: string;
-    partyAPreference: string;
-    partyBPreference: string;
-  }>;
-}> {
-  try {
-    const response = await api.get(`/admin/agreement/${agreementId}/clause-suggestions`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error getting AI clause suggestions:', error);
-    throw error;
-  }
-}
 
 // --- Sign Agreement ---
 export async function signAgreement(token: string, agreementId: string): Promise<{ 
