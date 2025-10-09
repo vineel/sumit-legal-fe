@@ -136,6 +136,7 @@ export default function AgreementViewPage() {
   const [isInvitedUser, setIsInvitedUser] = useState(false)
   const [otherPartyName, setOtherPartyName] = useState<string>("")
   const [myName, setMyName] = useState<string>("")
+  const [mySignature, setMySignature] = useState<string>("")
   const [showSignature, setShowSignature] = useState(false)
   const [socket, setSocket] = useState<any>(null)
 
@@ -233,15 +234,28 @@ export default function AgreementViewPage() {
           otherPartyName = initiatorName;
           console.log('✅ INVITED USER: My Name =', myName, 'Other =', otherPartyName)
         }
+        
+        // Still need to fetch current user's signature
+        try {
+          const currentUserProfile = await getUserProfile(token)
+          setMySignature(currentUserProfile.user.signature?.url || '')
+        } catch (signatureError) {
+          console.error('Error fetching signature in populated branch:', signatureError)
+          setMySignature('')
+        }
       } else {
         // Fallback: fetch user profiles if not populated
         console.log('Fetching user profiles...')
         
         try {
           // Since getUserProfile only gets current user, we'll use the populated data or fallback
-          // Get current user's name
+          // Get current user's name and signature
           const currentUserProfile = await getUserProfile(token)
           const currentUserName = currentUserProfile.user.name
+          const currentUserSignature = currentUserProfile.user.signature?.url || ''
+          
+          // Set the current user's signature
+          setMySignature(currentUserSignature)
           
           // For now, we'll use generic names since we can't fetch other users' profiles
           const initiatorName = 'Initiator'
@@ -266,6 +280,7 @@ export default function AgreementViewPage() {
           try {
             const currentUserProfile = await getUserProfile(token)
             myName = currentUserProfile.user.name
+            setMySignature(currentUserProfile.user.signature?.url || '')
             otherPartyName = 'Other Party'
             console.log('Using current user profile:', myName)
           } catch (currentUserError) {
@@ -704,6 +719,7 @@ export default function AgreementViewPage() {
           isOpen={showSignature}
           agreementId={agreementId}
           userName={myName}
+          userSignature={mySignature}
           onClose={() => setShowSignature(false)}
           onSignSuccess={() => {
             setShowSignature(false)
