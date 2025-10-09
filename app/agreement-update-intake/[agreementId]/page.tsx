@@ -21,6 +21,7 @@ import {
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useToast } from "@/hooks/use-toast"
+import { IntakeInstructions } from "@/components/intake-instructions"
 
 interface ClauseVariant {
   variant_label: string
@@ -642,6 +643,9 @@ export default function AgreementUpdateIntakePage() {
 
         <DndProvider backend={HTML5Backend}>
           <div className="space-y-8">
+            {/* Instructions */}
+            <IntakeInstructions />
+
             {/* Global Questions */}
             {template.global_questions && template.global_questions.length > 0 && (
               <Card>
