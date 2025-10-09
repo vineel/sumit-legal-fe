@@ -29,7 +29,9 @@ import { useToast } from "@/hooks/use-toast"
 import { AgreementChat } from "@/components/agreement-chat"
 import { SignatureOverlay } from "@/components/signature-overlay"
 import { getUserProfile } from "@/lib/user"
-import { downloadAgreementPDF } from "@/lib/agreements"
+// Client-side PDF generation
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 import { io } from "socket.io-client"
 
 interface ClauseVariant {
@@ -345,30 +347,102 @@ export default function AgreementViewPage() {
 
   const handleDownloadPDF = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "No authentication token found. Please log in again.",
-          variant: "destructive"
+      if (!agreement) return
+
+      const doc = new jsPDF()
+
+      // Header
+      doc.setFontSize(20)
+      doc.text('LEGAL AGREEMENT', 105, 20, { align: 'center' })
+      doc.setFontSize(16)
+      doc.text(agreement.templateId.templatename || 'Agreement', 105, 30, { align: 'center' })
+
+      // Agreement info
+      doc.setFontSize(11)
+      doc.text(`Agreement ID: ${agreement._id}`, 14, 45)
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 52)
+      doc.text(`Status: ${agreement.status?.toUpperCase()}`, 14, 59)
+
+      // Summary
+      const totalClauses = agreement.matchingResults?.length || 0
+      const greenClauses = (agreement.matchingResults || []).filter(r => r.matchStatus === 'green' && r.selectedVariant).length
+      const redClauses = (agreement.matchingResults || []).filter(r => r.matchStatus === 'red').length
+
+      doc.setFontSize(13)
+      doc.text('AGREEMENT SUMMARY', 14, 72)
+      doc.setFontSize(11)
+      doc.text(`Total Clauses Reviewed: ${totalClauses}`, 14, 80)
+      doc.text(`Successfully Matched Clauses: ${greenClauses}`, 14, 87)
+      doc.text(`Red Light Clauses (No Match): ${redClauses}`, 14, 94)
+
+      // Final Agreement Clauses
+      doc.setFontSize(13)
+      doc.text('FINAL AGREEMENT CLAUSES', 14, 108)
+      doc.setFontSize(10)
+      doc.text('The following clauses represent the specific terms selected by the matching algorithm:', 14, 115)
+
+      let y = 122
+      const agreed = (agreement.matchingResults || []).filter(r => r.matchStatus === 'green' && r.selectedVariant)
+      if (agreed.length === 0) {
+        doc.setFontSize(12)
+        doc.text('No mutually agreed clauses found.', 105, y, { align: 'center' })
+        y += 6
+        doc.setFontSize(10)
+        doc.text('This agreement contains no clauses that both parties have accepted.', 105, y, { align: 'center' })
+        y += 10
+      } else {
+        agreed.forEach((res, idx) => {
+          const sv = res.selectedVariant!
+          doc.setFontSize(11)
+          doc.text(`${idx + 1}. ${res.clause_name.toUpperCase()}`, 14, y)
+          y += 6
+          doc.setFontSize(10)
+          doc.text(`Selected Variant: ${sv.variant_label || 'Unknown'}`, 18, y)
+          y += 6
+          const text = `"${sv.text || 'No text available'}"`
+          const split = doc.splitTextToSize(text, 180)
+          doc.text(split, 18, y)
+          y += split.length * 6
+          if (sv.best_used_when && sv.best_used_when.trim()) {
+            const buw = `Best Used When: ${sv.best_used_when}`
+            const split2 = doc.splitTextToSize(buw, 180)
+            doc.text(split2, 18, y)
+            y += split2.length * 6
+          }
+          if (res.reason) { doc.text(`Reason: ${res.reason}`, 18, y); y += 6 }
+          if (res.initiatorRank) { doc.text(`Initiator Rank: ${res.initiatorRank}`, 18, y); y += 6 }
+          if (res.invitedUserRank) { doc.text(`Invited User Rank: ${res.invitedUserRank}`, 18, y); y += 6 }
+          if (res.score) { doc.text(`Score: ${res.score}`, 18, y); y += 6 }
+          y += 4
+
+          if (y > 270) { doc.addPage(); y = 20 }
         })
-        return
       }
 
-      await downloadAgreementPDF(token, agreementId)
-      
-      toast({
-        title: "Success",
-        description: "Agreement PDF downloaded successfully",
-        variant: "default"
-      })
+      // Signatures
+      if (y > 250) { doc.addPage(); y = 20 }
+      doc.setFontSize(13)
+      doc.text('SIGNATURES', 14, y); y += 8
+      doc.setFontSize(11)
+      if (agreement.signatures?.initiatorSignature?.signed) {
+        doc.text(`Initiator: ${(agreement.initiatorId as any)?.name || 'Initiator'}`, 14, y); y += 6
+        if (agreement.signatures.initiatorSignature.signedAt) {
+          doc.text(`Signed on: ${new Date(agreement.signatures.initiatorSignature.signedAt).toLocaleDateString()}`, 14, y); y += 6
+        }
+      }
+      if (agreement.signatures?.invitedUserSignature?.signed) {
+        doc.text(`Invited Party: ${(agreement.invitedUserId as any)?.name || 'Invited User'}`, 14, y); y += 6
+        if (agreement.signatures.invitedUserSignature.signedAt) {
+          doc.text(`Signed on: ${new Date(agreement.signatures.invitedUserSignature.signedAt).toLocaleDateString()}`, 14, y); y += 6
+        }
+      }
+
+      doc.save(`agreement-${agreement._id}.pdf`)
+
+      toast({ title: 'Success', description: 'Agreement PDF downloaded successfully' })
     } catch (error: any) {
-      console.error("Error downloading PDF:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to download PDF",
-        variant: "destructive"
-      })
+      console.error('Error generating PDF (client-side):', error)
+      toast({ title: 'Error', description: error.message || 'Failed to generate PDF', variant: 'destructive' })
     }
   }
 
