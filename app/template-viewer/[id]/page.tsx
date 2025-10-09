@@ -297,12 +297,14 @@ export default function TemplateViewerPage() {
     clauseName, 
     variant, 
     variantIndex, 
+    priorityNumber,
     isSelected, 
     status 
   }: {
     clauseName: string
     variant: ClauseVariant
     variantIndex: number
+    priorityNumber: number | null
     isSelected: boolean
     status?: 'accepted' | 'rejected'
   }) => {
@@ -325,10 +327,15 @@ export default function TemplateViewerPage() {
         }`}
       >
         <div className="flex items-start gap-3">
-          {/* Priority Number */}
-          <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-bold text-sm">
-            {variantIndex + 1}
-          </div>
+          {/* Priority Number - Only show for accepted variants */}
+          {priorityNumber !== null && (
+            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-bold text-sm">
+              {priorityNumber}
+            </div>
+          )}
+          {priorityNumber === null && (
+            <div className="w-8 h-8"></div>
+          )}
           <div ref={drag as any} className="cursor-move">
             <GripVertical className="w-5 h-5 text-gray-400 mt-1" />
           </div>
@@ -485,28 +492,58 @@ export default function TemplateViewerPage() {
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="space-y-4">
-                    {clauseVariantsOrder[clause.clause_name]?.map((variant, index) => {
-                      const selectedClause = selectedClauses.find(
-                        sc => sc.clause_name === clause.clause_name && 
-                        sc.variant.variant_label === variant.variant_label
-                      )
+                    {(() => {
+                      const variants = clauseVariantsOrder[clause.clause_name] || []
                       
-                      return (
-                        <DropTarget
-                          key={`${clause.clause_name}-${variant.variant_label}`}
-                          clauseName={clause.clause_name}
-                          index={index}
-                        >
-                          <DraggableVariant
+                      // Sort variants: accepted first, rejected at bottom
+                      const sortedVariants = variants.sort((a, b) => {
+                        const aRejected = selectedClauses.some(sc => 
+                          sc.clause_name === clause.clause_name && 
+                          sc.variant.variant_label === a.variant_label && 
+                          sc.status === 'rejected'
+                        )
+                        const bRejected = selectedClauses.some(sc => 
+                          sc.clause_name === clause.clause_name && 
+                          sc.variant.variant_label === b.variant_label && 
+                          sc.status === 'rejected'
+                        )
+                        
+                        // Accepted variants first, rejected at bottom
+                        if (aRejected && !bRejected) return 1
+                        if (!aRejected && bRejected) return -1
+                        return 0
+                      })
+                      
+                      // Calculate priority numbers only for accepted variants
+                      let acceptedIndex = 0
+                      
+                      return sortedVariants.map((variant, index) => {
+                        const selectedClause = selectedClauses.find(
+                          sc => sc.clause_name === clause.clause_name && 
+                          sc.variant.variant_label === variant.variant_label
+                        )
+                        
+                        const isRejected = selectedClause?.status === 'rejected'
+                        const priorityNumber = isRejected ? null : ++acceptedIndex
+                        
+                        return (
+                          <DropTarget
+                            key={`${clause.clause_name}-${variant.variant_label}`}
                             clauseName={clause.clause_name}
-                            variant={variant}
-                            variantIndex={index}
-                            isSelected={!!selectedClause}
-                            status={selectedClause?.status}
-                          />
-                        </DropTarget>
-                      )
-                    })}
+                            index={index}
+                          >
+                            <DraggableVariant
+                              clauseName={clause.clause_name}
+                              variant={variant}
+                              variantIndex={index}
+                              priorityNumber={priorityNumber}
+                              isSelected={!!selectedClause}
+                              status={selectedClause?.status}
+                            />
+                          </DropTarget>
+                        )
+                      })
+                    })()}
                   </div>
                 </CardContent>
               </Card>
