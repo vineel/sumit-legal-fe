@@ -107,6 +107,18 @@ interface Agreement {
     }
   }>
   status: 'pending' | 'active' | 'signed' | 'completed'
+  signatures?: {
+    initiatorSignature: {
+      signed: boolean
+      signedAt?: string
+      signatureUrl?: string
+    }
+    invitedUserSignature: {
+      signed: boolean
+      signedAt?: string
+      signatureUrl?: string
+    }
+  }
   createdAt: string
   updatedAt: string
 }
@@ -154,8 +166,10 @@ export default function AgreementViewPage() {
       console.log('Invited User ID type:', typeof agreement.invitedUserId)
       
       // Handle both string and object IDs
-      const initiatorId = typeof agreement.initiatorId === 'object' ? agreement.initiatorId._id : agreement.initiatorId
-      const invitedUserId = typeof agreement.invitedUserId === 'object' ? agreement.invitedUserId._id : agreement.invitedUserId
+      const initiatorId = typeof agreement.initiatorId === 'object' && agreement.initiatorId ? 
+        (agreement.initiatorId as any)._id : agreement.initiatorId
+      const invitedUserId = typeof agreement.invitedUserId === 'object' && agreement.invitedUserId ? 
+        (agreement.invitedUserId as any)._id : agreement.invitedUserId
       
       console.log('Processed Initiator ID:', initiatorId)
       console.log('Processed Invited User ID:', invitedUserId)
@@ -175,7 +189,7 @@ export default function AgreementViewPage() {
     }
   }, [agreement, currentUserId])
 
-  const fetchUserNames = async (isInitiatorRole, isInvitedRole) => {
+  const fetchUserNames = async (isInitiatorRole: boolean, isInvitedRole: boolean) => {
     if (!agreement) return
     
     try {
@@ -197,11 +211,11 @@ export default function AgreementViewPage() {
       let otherPartyName = '';
 
       // Check if we have populated user data first
-      if (agreement.initiatorId && typeof agreement.initiatorId === 'object' && agreement.initiatorId.name) {
+      if (agreement.initiatorId && typeof agreement.initiatorId === 'object' && (agreement.initiatorId as any).name) {
         // User data is already populated
-        const initiatorName = agreement.initiatorId.name
+        const initiatorName = (agreement.initiatorId as any).name
         const invitedUserName = agreement.invitedUserId && typeof agreement.invitedUserId === 'object' ? 
-          agreement.invitedUserId.name : 'Unknown User'
+          (agreement.invitedUserId as any).name : 'Unknown User'
         
         console.log('Using populated data - Initiator:', initiatorName, 'Invited:', invitedUserName)
         
@@ -224,13 +238,14 @@ export default function AgreementViewPage() {
         console.log('Fetching user profiles...')
         
         try {
-          // Get initiator name
-          const initiatorProfile = await getUserProfile(agreement.initiatorId, token)
-          const initiatorName = `${initiatorProfile.firstName} ${initiatorProfile.lastName}`.trim()
+          // Since getUserProfile only gets current user, we'll use the populated data or fallback
+          // Get current user's name
+          const currentUserProfile = await getUserProfile(token)
+          const currentUserName = currentUserProfile.user.name
           
-          // Get invited user name
-          const invitedUserProfile = await getUserProfile(agreement.invitedUserId, token)
-          const invitedUserName = `${invitedUserProfile.firstName} ${invitedUserProfile.lastName}`.trim()
+          // For now, we'll use generic names since we can't fetch other users' profiles
+          const initiatorName = 'Initiator'
+          const invitedUserName = 'Invited User'
           
           console.log('🎯 FETCHED PROFILES BRANCH:')
           console.log('Fetched profiles - Initiator:', initiatorName, 'Invited:', invitedUserName)
@@ -249,8 +264,8 @@ export default function AgreementViewPage() {
           console.error('Error fetching profiles:', profileError)
           // Try to get current user's name from their own profile
           try {
-            const currentUserProfile = await getUserProfile(currentUserId, token)
-            myName = `${currentUserProfile.firstName} ${currentUserProfile.lastName}`.trim()
+            const currentUserProfile = await getUserProfile(token)
+            myName = currentUserProfile.user.name
             otherPartyName = 'Other Party'
             console.log('Using current user profile:', myName)
           } catch (currentUserError) {
@@ -423,10 +438,20 @@ export default function AgreementViewPage() {
             </Button>
             
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleDownloadPDF}>
-                <Download className="w-4 h-4 mr-2" />
-                Download PDF
-              </Button>
+              {/* Only show Download PDF when both parties have signed */}
+              {agreement.status === 'signed' && 
+               agreement.signatures?.initiatorSignature?.signed && 
+               agreement.signatures?.invitedUserSignature?.signed ? (
+                <Button variant="outline" onClick={handleDownloadPDF}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 bg-gray-100 rounded-md">
+                  <Download className="w-4 h-4" />
+                  PDF available after both parties sign
+                </div>
+              )}
               <Button variant="outline" onClick={() => router.push(`/agreement-update-intake/${agreementId}`)}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Intake Form
@@ -669,16 +694,18 @@ export default function AgreementViewPage() {
 
         {/* Chat Section */}
         <div className="mt-8">
-          <AgreementChat agreementId={agreementId} />
+          <AgreementChat agreementId={agreementId} currentUserId={currentUserId || ''} otherPartyName={otherPartyName} />
                   </div>
                 </div>
 
       {/* Signature Modal */}
       {showSignature && (
         <SignatureOverlay
+          isOpen={showSignature}
           agreementId={agreementId}
+          userName={myName}
           onClose={() => setShowSignature(false)}
-          onSuccess={() => {
+          onSignSuccess={() => {
             setShowSignature(false)
             fetchAgreement() // Refresh to show updated status
           }}
