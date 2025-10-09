@@ -18,7 +18,12 @@ import {
   Edit,
   RefreshCw,
   PenTool,
-  Download
+  Download,
+  User,
+  UserCheck,
+  Calculator,
+  Target,
+  Zap
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AgreementChat } from "@/components/agreement-chat"
@@ -30,6 +35,7 @@ import { io } from "socket.io-client"
 interface ClauseVariant {
   variant_label: string
   text: string
+  best_used_when?: string
 }
 
 interface Clause {
@@ -49,55 +55,60 @@ interface Template {
   }>
 }
 
-interface MatchingResult {
-  clause_name: string
-  variant: ClauseVariant
-  initiatorStatus: 'accepted' | 'rejected'
-  invitedUserStatus: 'accepted' | 'rejected'
-  initiatorOrder: number
-  invitedUserOrder: number
-  matchStatus: 'green' | 'red' | 'yellow'
-  reason: string
-}
-
 interface Agreement {
   _id: string
   templateId: Template
-  initiatorId: {
-    _id: string
-    name: string
-    email: string
-  }
-  invitedUserId: {
-    _id: string
-    name: string
-    email: string
-  }
-  status: string
+  initiatorId: string
+  invitedUserId: string
   initiatorData: {
     intakeAnswers: Record<string, string>
-    selectedClauses: any[]
-    clauseVariantsOrder?: Record<string, any[]>
+    selectedClauses: Array<{
+      clause_name: string
+      variant: ClauseVariant
+      status: 'accepted' | 'rejected'
+      order: number
+    }>
+    clauseVariantsOrder: Record<string, Array<ClauseVariant & { order: number }>>
   }
   invitedUserData: {
     intakeAnswers: Record<string, string>
-    selectedClauses: any[]
-    clauseVariantsOrder?: Record<string, any[]>
+    selectedClauses: Array<{
+      clause_name: string
+      variant: ClauseVariant
+      status: 'accepted' | 'rejected'
+      order: number
+    }>
+    clauseVariantsOrder: Record<string, Array<ClauseVariant & { order: number }>>
   }
-  matchingResults: MatchingResult[]
-  updatedAt?: string
-  signatures?: {
-    initiatorSignature: {
-      signed: boolean
-      signedAt?: string
-      signatureUrl?: string
+  matchingResults: Array<{
+    clause_name: string
+    selectedVariant: ClauseVariant | null
+    matchStatus: 'green' | 'red'
+    reason: string
+    score: number | null
+    initiatorRank: number | null
+    invitedUserRank: number | null
+    mutuallyAcceptableVariants: Array<{
+      variant: ClauseVariant
+      initiatorRank: number
+      invitedUserRank: number
+    }>
+    allVariants: {
+      initiator: Array<{
+        variant: ClauseVariant
+        status: 'accepted' | 'rejected'
+        order: number
+      }>
+      invitedUser: Array<{
+        variant: ClauseVariant
+        status: 'accepted' | 'rejected'
+        order: number
+      }>
     }
-    invitedUserSignature: {
-      signed: boolean
-      signedAt?: string
-      signatureUrl?: string
-    }
-  }
+  }>
+  status: 'pending' | 'active' | 'signed' | 'completed'
+  createdAt: string
+  updatedAt: string
 }
 
 export default function AgreementViewPage() {
@@ -109,16 +120,16 @@ export default function AgreementViewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [showSignatureOverlay, setShowSignatureOverlay] = useState(false)
-  const [userProfile, setUserProfile] = useState<any>(null)
-  const [userSignature, setUserSignature] = useState<string | null>(null)
+  const [isInitiator, setIsInitiator] = useState(false)
+  const [isInvitedUser, setIsInvitedUser] = useState(false)
+  const [otherPartyName, setOtherPartyName] = useState<string>("")
+  const [myName, setMyName] = useState<string>("")
+  const [showSignature, setShowSignature] = useState(false)
   const [socket, setSocket] = useState<any>(null)
 
   const agreementId = params.agreementId as string
 
   useEffect(() => {
-    fetchAgreement()
-    loadUserProfile()
     // Get current user ID from token
     const token = localStorage.getItem('auth_token')
     if (token) {
@@ -129,591 +140,550 @@ export default function AgreementViewPage() {
         console.error('Error parsing token:', error)
       }
     }
+    
+    fetchAgreement()
   }, [agreementId])
 
-  // Socket connection for real-time updates
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    if (!token) return
-
-    const socketInstance = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000', {
-      auth: {
-        token: token
-      }
-    })
-
-    setSocket(socketInstance)
-
-    // Join agreement room
-    socketInstance.emit('join-agreement-chat', { agreementId })
-
-    // Listen for signature updates
-    socketInstance.on('signature-updated', (data) => {
-      console.log('📝 Signature update received:', data)
-      toast({
-        title: "Agreement Updated",
-        description: `${data.userName} has signed the agreement`,
-      })
-      // Refresh agreement data
-      fetchAgreement()
-    })
-
-    return () => {
-      socketInstance.disconnect()
+    if (agreement && currentUserId) {
+      console.log('🔍 PARTY IDENTIFICATION DEBUG:')
+      console.log('Current User ID:', currentUserId)
+      console.log('Initiator ID:', agreement.initiatorId)
+      console.log('Invited User ID:', agreement.invitedUserId)
+      console.log('Initiator ID type:', typeof agreement.initiatorId)
+      console.log('Invited User ID type:', typeof agreement.invitedUserId)
+      
+      // Handle both string and object IDs
+      const initiatorId = typeof agreement.initiatorId === 'object' ? agreement.initiatorId._id : agreement.initiatorId
+      const invitedUserId = typeof agreement.invitedUserId === 'object' ? agreement.invitedUserId._id : agreement.invitedUserId
+      
+      console.log('Processed Initiator ID:', initiatorId)
+      console.log('Processed Invited User ID:', invitedUserId)
+      
+      const isInitiatorCheck = initiatorId === currentUserId
+      const isInvitedCheck = invitedUserId === currentUserId
+      
+      console.log('Is Initiator Check:', isInitiatorCheck)
+      console.log('Is Invited Check:', isInvitedCheck)
+      
+      setIsInitiator(isInitiatorCheck)
+      setIsInvitedUser(isInvitedCheck)
+      
+      // Get user names from populated data or fetch them
+      // Pass the role information directly to avoid state timing issues
+      fetchUserNames(isInitiatorCheck, isInvitedCheck)
     }
-  }, [agreementId])
+  }, [agreement, currentUserId])
 
-  const loadUserProfile = async () => {
+  const fetchUserNames = async (isInitiatorRole, isInvitedRole) => {
+    if (!agreement) return
+    
     try {
       const token = localStorage.getItem('auth_token')
       if (!token) return
 
-      const response = await getUserProfile(token)
-      setUserProfile(response.user)
-      setUserSignature(response.user.signature?.url || null)
+      // Debug logging
+      console.log('🔍 USER NAME FETCH DEBUG:')
+      console.log('Agreement data:', agreement)
+      console.log('Initiator ID:', agreement.initiatorId)
+      console.log('Invited User ID:', agreement.invitedUserId)
+      console.log('Current User ID:', currentUserId)
+      console.log('Is Initiator (passed):', isInitiatorRole)
+      console.log('Is Invited User (passed):', isInvitedRole)
+      console.log('Is Initiator (state):', isInitiator)
+      console.log('Is Invited User (state):', isInvitedUser)
+
+      let myName = '';
+      let otherPartyName = '';
+
+      // Check if we have populated user data first
+      if (agreement.initiatorId && typeof agreement.initiatorId === 'object' && agreement.initiatorId.name) {
+        // User data is already populated
+        const initiatorName = agreement.initiatorId.name
+        const invitedUserName = agreement.invitedUserId && typeof agreement.invitedUserId === 'object' ? 
+          agreement.invitedUserId.name : 'Unknown User'
+        
+        console.log('Using populated data - Initiator:', initiatorName, 'Invited:', invitedUserName)
+        
+        console.log('🎯 POPULATED DATA BRANCH:')
+        console.log('Is Initiator (passed):', isInitiatorRole)
+        console.log('Initiator Name:', initiatorName)
+        console.log('Invited Name:', invitedUserName)
+        
+        if (isInitiatorRole) {
+          myName = initiatorName;
+          otherPartyName = invitedUserName;
+          console.log('✅ INITIATOR: My Name =', myName, 'Other =', otherPartyName)
+        } else {
+          myName = invitedUserName;
+          otherPartyName = initiatorName;
+          console.log('✅ INVITED USER: My Name =', myName, 'Other =', otherPartyName)
+        }
+      } else {
+        // Fallback: fetch user profiles if not populated
+        console.log('Fetching user profiles...')
+        
+        try {
+          // Get initiator name
+          const initiatorProfile = await getUserProfile(agreement.initiatorId, token)
+          const initiatorName = `${initiatorProfile.firstName} ${initiatorProfile.lastName}`.trim()
+          
+          // Get invited user name
+          const invitedUserProfile = await getUserProfile(agreement.invitedUserId, token)
+          const invitedUserName = `${invitedUserProfile.firstName} ${invitedUserProfile.lastName}`.trim()
+          
+          console.log('🎯 FETCHED PROFILES BRANCH:')
+          console.log('Fetched profiles - Initiator:', initiatorName, 'Invited:', invitedUserName)
+          console.log('Is Initiator (passed):', isInitiatorRole)
+          
+          if (isInitiatorRole) {
+            myName = initiatorName;
+            otherPartyName = invitedUserName;
+            console.log('✅ INITIATOR: My Name =', myName, 'Other =', otherPartyName)
+          } else {
+            myName = invitedUserName;
+            otherPartyName = initiatorName;
+            console.log('✅ INVITED USER: My Name =', myName, 'Other =', otherPartyName)
+          }
+        } catch (profileError) {
+          console.error('Error fetching profiles:', profileError)
+          // Try to get current user's name from their own profile
+          try {
+            const currentUserProfile = await getUserProfile(currentUserId, token)
+            myName = `${currentUserProfile.firstName} ${currentUserProfile.lastName}`.trim()
+            otherPartyName = 'Other Party'
+            console.log('Using current user profile:', myName)
+          } catch (currentUserError) {
+            console.error('Error fetching current user profile:', currentUserError)
+            myName = 'You'
+            otherPartyName = 'Other Party'
+          }
+        }
+      }
+
+      console.log('Final names - My Name:', myName, 'Other Party:', otherPartyName);
+      setMyName(myName);
+      setOtherPartyName(otherPartyName);
+      
     } catch (error) {
-      console.error('Error loading user profile:', error)
+      console.error('Error fetching user names:', error)
+      // Fallback to generic names if names can't be fetched
+      setMyName('You')
+      setOtherPartyName('Other Party')
     }
   }
-
-  // Refresh agreement data when page becomes visible (e.g., returning from update intake)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('🔄 Page became visible, refreshing agreement data...')
-        fetchAgreement()
-      }
-    }
-
-    const handleFocus = () => {
-      console.log('🔄 Window focused, refreshing agreement data...')
-      fetchAgreement()
-    }
-
-    // Check if agreement was updated from another page
-    const checkForUpdates = () => {
-      const updateFlag = localStorage.getItem(`agreement_${agreementId}_updated`)
-      if (updateFlag) {
-        console.log('🔄 Agreement was updated, refreshing data...')
-        fetchAgreement()
-        localStorage.removeItem(`agreement_${agreementId}_updated`)
-      }
-    }
-
-    // Check immediately when component mounts
-    checkForUpdates()
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [agreementId])
 
   const fetchAgreement = async () => {
     try {
       setLoading(true)
+      setError(null)
+      
       const token = localStorage.getItem('auth_token')
       if (!token) {
-        throw new Error('No authentication token found')
+        setError("No authentication token found. Please log in again.")
+        return
       }
-
-      console.log('🔍 Fetching agreement:', agreementId)
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agreement/${agreementId}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('❌ Failed to fetch agreement:', errorText)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
+      
       if (data.success) {
-        console.log('✅ Agreement fetched successfully:', data.agreement)
         setAgreement(data.agreement)
-        
-        // Show success message if this was a refresh (not initial load)
-        if (agreement) {
-          toast({
-            title: "Agreement Updated",
-            description: "Matching results have been refreshed with the latest data.",
-          })
-        }
       } else {
-        throw new Error(data.message || 'Failed to fetch agreement')
+        setError(data.message || "Failed to fetch agreement")
       }
-    } catch (error: any) {
-      console.error('Error fetching agreement:', error)
-      setError(error.message)
+    } catch (err: any) {
+      console.error("Error fetching agreement:", err)
+      setError(err.message || "Failed to fetch agreement")
     } finally {
       setLoading(false)
     }
   }
 
-  const getAgreementStatusIcon = (status: string) => {
-    switch (status) {
-      case 'green':
-        return <CheckCircle className="w-5 h-5 text-green-500" />
-      case 'yellow':
-        return <Clock className="w-5 h-5 text-yellow-500" />
-      case 'red':
-        return <XCircle className="w-5 h-5 text-red-500" />
-      default:
-        return <AlertCircle className="w-5 h-5 text-gray-500" />
-    }
-  }
-
-  const getAgreementStatusColor = (status: string) => {
-    switch (status) {
-      case 'green':
-        return 'bg-green-100 border-green-300 text-green-800'
-      case 'yellow':
-        return 'bg-yellow-100 border-yellow-300 text-yellow-800'
-      case 'red':
-        return 'bg-red-100 border-red-300 text-red-800'
-      default:
-        return 'bg-gray-100 border-gray-300 text-gray-800'
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'green':
-        return 'Agreement Match'
-      case 'yellow':
-        return 'Partial Match'
-      case 'red':
-        return 'Conflict'
-      default:
-        return 'Unknown'
-    }
-  }
-
   const handleSignAgreement = () => {
-    if (!userSignature) {
-      toast({
-        title: "No Signature Found",
-        description: "Please upload a signature in your profile first.",
-        variant: "destructive",
-      })
-      router.push('/profile')
-      return
-    }
-    setShowSignatureOverlay(true)
-  }
-
-  const handleSignSuccess = () => {
-    // Refresh agreement data to show updated status
-    fetchAgreement()
-    toast({
-      title: "Agreement Signed!",
-      description: "Your signature has been recorded successfully.",
-    })
+    setShowSignature(true)
   }
 
   const handleDownloadPDF = async () => {
     try {
       const token = localStorage.getItem('auth_token')
       if (!token) {
-        throw new Error('No authentication token found')
+        toast({
+          title: "Authentication Error",
+          description: "No authentication token found. Please log in again.",
+          variant: "destructive"
+        })
+        return
       }
 
-      toast({
-        title: "Downloading PDF...",
-        description: "Generating agreement PDF with agreed clauses only.",
-      })
-
-      await downloadAgreementPDF(token, agreementId)
+      await downloadAgreementPDF(agreementId, token)
       
       toast({
-        title: "PDF Downloaded!",
-        description: "Agreement PDF has been downloaded successfully.",
+        title: "Success",
+        description: "Agreement PDF downloaded successfully",
+        variant: "default"
       })
     } catch (error: any) {
-      console.error('Error downloading PDF:', error)
+      console.error("Error downloading PDF:", error)
       toast({
-        title: "Download Failed",
-        description: error.message || "Failed to download agreement PDF",
-        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to download PDF",
+        variant: "destructive"
       })
     }
   }
 
-  const isUserInitiator = currentUserId === agreement?.initiatorId._id
-  const isUserInvited = currentUserId === agreement?.invitedUserId._id
-  const isUserPartOfAgreement = isUserInitiator || isUserInvited
-  
-  // Check if user has already signed
-  const hasUserSigned = isUserInitiator 
-    ? agreement?.signatures?.initiatorSignature?.signed 
-    : agreement?.signatures?.invitedUserSignature?.signed
-  
-  const isAgreementFullySigned = agreement?.status === 'signed'
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'active': return 'bg-blue-100 text-blue-800'
+      case 'signed': return 'bg-green-100 text-green-800'
+      case 'completed': return 'bg-purple-100 text-purple-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
 
+  const getMatchStatusIcon = (matchStatus: string) => {
+    switch (matchStatus) {
+      case 'green': return <CheckCircle className="w-5 h-5 text-green-600" />
+      case 'red': return <XCircle className="w-5 h-5 text-red-600" />
+      default: return <AlertCircle className="w-5 h-5 text-gray-600" />
+    }
+  }
+
+  const getMatchStatusColor = (matchStatus: string) => {
+    switch (matchStatus) {
+      case 'green': return 'bg-green-50 border-green-200'
+      case 'red': return 'bg-red-50 border-red-200'
+      default: return 'bg-gray-50 border-gray-200'
+    }
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading agreement...</p>
+          <p className="text-muted-foreground">Loading agreement...</p>
         </div>
       </div>
     )
   }
 
-  if (error || !agreement) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Agreement Not Found</h2>
-          <p className="text-muted-foreground mb-4">
-            {error || 'The agreement you are looking for does not exist or you are not authorized to view it.'}
-          </p>
-          <Button onClick={() => router.push('/dashboard')} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Error</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={fetchAgreement}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Try Again
           </Button>
         </div>
       </div>
     )
   }
 
-  const template = agreement.templateId
-  const matchingResults = agreement.matchingResults || []
-  const greenCount = matchingResults.filter(r => r.matchStatus === 'green').length
-  const yellowCount = matchingResults.filter(r => r.matchStatus === 'yellow').length
-  const redCount = matchingResults.filter(r => r.matchStatus === 'red').length
-
-  // Group matching results by clause name
-  const groupedMatchingResults = matchingResults.reduce((acc, result) => {
-    if (!acc[result.clause_name]) {
-      acc[result.clause_name] = []
-    }
-    acc[result.clause_name].push(result)
-    return acc
-  }, {} as Record<string, MatchingResult[]>)
-
-  // Get overall status for a clause based on its variants
-  const getOverallClauseStatus = (variants: MatchingResult[]) => {
-    const hasGreen = variants.some(v => v.matchStatus === 'green')
-    const hasRed = variants.some(v => v.matchStatus === 'red')
-    const hasYellow = variants.some(v => v.matchStatus === 'yellow')
-    
-    if (hasGreen && !hasRed) return 'green'
-    if (hasRed) return 'red'
-    if (hasYellow) return 'yellow'
-    return 'green' // default
+  if (!agreement) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <FileText className="w-8 h-8 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Agreement Not Found</h3>
+          <p className="text-muted-foreground">The requested agreement could not be found.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">{template.templatename}</h1>
-            <p className="text-muted-foreground mt-2">{template.description}</p>
-            <div className="flex items-center gap-4 mt-4">
-              <Badge variant="outline">
-                <Users className="w-4 h-4 mr-1" />
-                {agreement.initiatorId.name} & {agreement.invitedUserId.name}
-              </Badge>
-              <Badge variant={agreement.status === 'active' ? 'default' : 'secondary'}>
-                Status: {agreement.status}
-              </Badge>
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <Button 
+              variant="outline" 
+              onClick={() => router.back()}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleDownloadPDF}>
+                <Download className="w-4 h-4 mr-2" />
+                Download PDF
+              </Button>
+              <Button variant="outline" onClick={() => router.push(`/agreement-update-intake/${agreementId}`)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Intake Form
+              </Button>
+              {agreement.status === 'active' && (
+                <Button onClick={handleSignAgreement}>
+                  <PenTool className="w-4 h-4 mr-2" />
+                  Sign Agreement
+                </Button>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Sign Agreement Button - only show if user is part of agreement and hasn't signed */}
-            {isUserPartOfAgreement && !hasUserSigned && !isAgreementFullySigned && (
-              <Button onClick={handleSignAgreement} variant="default" className="gap-2 bg-green-600 hover:bg-green-700">
-                <PenTool className="w-4 h-4" />
-                Sign Agreement
-              </Button>
-            )}
-            
-            {/* Show signed status if user has signed */}
-            {isUserPartOfAgreement && hasUserSigned && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-green-100 text-green-800 rounded-md border border-green-200">
-                <CheckCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">You have signed this agreement</span>
+
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {agreement.templateId.templatename}
+                </h1>
+                <p className="text-gray-600 mb-4">{agreement.templateId.description}</p>
+                
+                <div className="flex items-center gap-4">
+                  <Badge className={getStatusColor(agreement.status)}>
+                    {agreement.status.charAt(0).toUpperCase() + agreement.status.slice(1)}
+                  </Badge>
+                  
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Users className="w-4 h-4" />
+                    <span>Agreement between {myName} and {otherPartyName}</span>
               </div>
-            )}
-            
-            {/* Show fully signed status and PDF download button */}
-            {isAgreementFullySigned && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-800 rounded-md border border-blue-200">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">Agreement fully signed by both parties</span>
+                  
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Clock className="w-4 h-4" />
+                    <span>Created {new Date(agreement.createdAt).toLocaleDateString()}</span>
+                  </div>
                 </div>
-                <Button 
-                  onClick={handleDownloadPDF} 
-                  variant="default" 
-                  className="gap-2 bg-green-600 hover:bg-green-700"
-                >
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </Button>
               </div>
-            )}
-            
-            {/* Update Intake Form Button - hide if agreement is signed */}
-            {!isAgreementFullySigned && (
-              <Button onClick={() => router.push(`/agreement-update-intake/${agreementId}`)} variant="default" className="gap-2">
-                <Edit className="w-4 h-4" />
-                Update Intake Form
-              </Button>
-            )}
-            
-            <Button onClick={fetchAgreement} variant="outline" className="gap-2" disabled={loading}>
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button onClick={() => router.push('/dashboard')} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                    <div>
+                      <p className="text-sm text-green-700">Resolved Clauses</p>
+                      <p className="text-2xl font-bold text-green-800">
+                        {agreement.matchingResults?.filter(r => r.matchStatus === 'green').length || 0}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-red-50 border-red-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <XCircle className="w-8 h-8 text-red-600" />
+                    <div>
+                      <p className="text-sm text-red-700">Red Light Clauses</p>
+                      <p className="text-2xl font-bold text-red-800">
+                        {agreement.matchingResults?.filter(r => r.matchStatus === 'red').length || 0}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Target className="w-8 h-8 text-blue-600" />
+                    <div>
+                      <p className="text-sm text-blue-700">Total Clauses</p>
+                      <p className="text-2xl font-bold text-blue-800">
+                        {agreement.matchingResults?.length || 0}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
 
+        {/* Matching Results */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Calculator className="w-6 h-6" />
+            Agreement Matching Results
+          </h2>
 
-        {/* Matching Results - Organized by Clause Type */}
-        {matchingResults.length > 0 && (
-          <Card className="mt-8">
+          {agreement.matchingResults?.map((result, index) => {
+            // Debug logging
+            console.log(`Result ${index}:`, result);
+            console.log(`allVariants:`, result.allVariants);
+            console.log(`initiator variants:`, result.allVariants?.initiator);
+            console.log(`invitedUser variants:`, result.allVariants?.invitedUser);
+            
+            return (
+            <Card key={index} className={`${getMatchStatusColor(result.matchStatus)}`}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Agreement Clauses & Variants
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {getMatchStatusIcon(result.matchStatus)}
+                    <span>{result.clause_name}</span>
+                  </div>
+                  {result.score && (
+                    <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                      Score: {result.score}
+                    </Badge>
+                  )}
               </CardTitle>
               <CardDescription>
-                Review all clause types and their variants with matching status
-                {agreement.updatedAt && (
-                  <span className="block text-xs text-muted-foreground mt-1">
-                    Last updated: {new Date(agreement.updatedAt).toLocaleString()}
-                  </span>
-                )}
+                  {result.reason}
               </CardDescription>
+              </CardHeader>
               
-              {/* Summary Stats */}
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">Fully Agreed</span>
-                  </div>
-                  <p className="text-lg font-bold text-green-900 mt-1">{greenCount}</p>
-                </div>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-yellow-600" />
-                    <span className="text-sm font-medium text-yellow-800">Partial Agreement</span>
-                  </div>
-                  <p className="text-lg font-bold text-yellow-900 mt-1">{yellowCount}</p>
-                </div>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <XCircle className="w-4 h-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-800">Conflicts</span>
-                  </div>
-                  <p className="text-lg font-bold text-red-900 mt-1">{redCount}</p>
-                </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">Total Clauses</span>
-                  </div>
-                  <p className="text-lg font-bold text-blue-900 mt-1">{Object.keys(groupedMatchingResults).length}</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                  <span>Updating matching results...</span>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {Object.entries(groupedMatchingResults).map(([clauseName, variants], index) => (
-                    <div key={index} className="border rounded-lg overflow-hidden">
-                      {/* Clause Type Header */}
-                      <div className="bg-muted/50 px-6 py-4 border-b">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-primary">{index + 1}</span>
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-semibold">{clauseName}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {variants.length} variant{variants.length !== 1 ? 's' : ''} available
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {getOverallClauseStatus(variants) === 'green' && (
-                              <Badge className="bg-green-100 text-green-800 border-green-200">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Fully Agreed
-                              </Badge>
-                            )}
-                            {getOverallClauseStatus(variants) === 'yellow' && (
-                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                                <Clock className="w-3 h-3 mr-1" />
-                                Partial Agreement
-                              </Badge>
-                            )}
-                            {getOverallClauseStatus(variants) === 'red' && (
-                              <Badge className="bg-red-100 text-red-800 border-red-200">
-                                <XCircle className="w-3 h-3 mr-1" />
-                                Conflict
-                              </Badge>
-                            )}
-                          </div>
+              <CardContent className="space-y-6">
+                {/* Selected Variant */}
+                {result.selectedVariant && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-green-600" />
+                      Selected Variant
+                    </h4>
+                    <div className="space-y-2">
+                      <p className="font-medium text-gray-800">{result.selectedVariant.variant_label}</p>
+                      <p className="text-sm text-gray-600">{result.selectedVariant.text}</p>
+                      {result.selectedVariant.best_used_when && (
+                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-xs text-blue-800">
+                            <strong>Best Used When:</strong> {result.selectedVariant.best_used_when}
+                          </p>
                         </div>
-                      </div>
-
-                      {/* Variants Section */}
-                      <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                        <div className="divide-y">
-                          {variants.map((result, variantIndex) => (
-                            <div key={variantIndex} className="p-6 hover:bg-muted/30 transition-colors border-l-4 border-l-transparent hover:border-l-primary/20">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    {getAgreementStatusIcon(result.matchStatus)}
-                                    <h4 className="font-medium text-base">{result.variant.variant_label}</h4>
-                                    <Badge variant="outline" className={getAgreementStatusColor(result.matchStatus)}>
-                                      {getStatusText(result.matchStatus)}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
-                                    {result.variant.text}
-                                  </p>
-                                </div>
-                              </div>
-                              
-                              {/* Party Preferences */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                    <span className="font-medium text-sm">Initiator ({agreement.initiatorId.name})</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant={result.initiatorStatus === 'accepted' ? 'default' : 'destructive'} className="text-xs">
-                                      {result.initiatorStatus}
-                                    </Badge>
-                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                      Priority: {result.initiatorOrder}
-                                    </span>
-                                  </div>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                    <span className="font-medium text-sm">Invited User ({agreement.invitedUserId.name})</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant={result.invitedUserStatus === 'accepted' ? 'default' : 'destructive'} className="text-xs">
-                                      {result.invitedUserStatus}
-                                    </Badge>
-                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                      Priority: {result.invitedUserOrder}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <p className="text-xs text-muted-foreground mt-3 italic bg-muted/50 p-2 rounded">
-                                {result.reason}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  ))}
+                    
+                    {/* Ranking Info */}
+                    <div className="mt-4 flex gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-blue-600" />
+                        <span className="text-blue-700">My Rank: {isInitiator ? result.initiatorRank : result.invitedUserRank}</span>
+                </div>
+                  <div className="flex items-center gap-2">
+                        <Target className="w-4 h-4 text-green-600" />
+                        <span className="text-green-700">Selected by matching algorithm</span>
+                  </div>
+                </div>
+                  </div>
+                )}
+
+                {/* Red Light - No Selection */}
+                {result.matchStatus === 'red' && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-red-900 mb-2 flex items-center gap-2">
+                      <XCircle className="w-4 h-4" />
+                      Red Light - No Mutually Acceptable Variants
+                    </h4>
+                    <p className="text-sm text-red-700">
+                      This clause requires escalation or renegotiation as there are no variants that both parties can accept.
+                    </p>
+                  </div>
+                )}
+
+                {/* My Selections Only - Privacy Focused */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    My Preferences ({myName})
+                  </h4>
+                  <div className="space-y-2">
+                    {/* Show only current user's selections */}
+                    {(isInitiator ? agreement.initiatorData?.selectedClauses?.filter(sc => sc.clause_name === result.clause_name) : 
+                      agreement.invitedUserData?.selectedClauses?.filter(sc => sc.clause_name === result.clause_name)
+                    )?.map((variant, idx) => (
+                      <div key={idx} className={`p-2 rounded border ${
+                        variant.status === 'accepted' 
+                          ? 'bg-green-100 border-green-300' 
+                          : 'bg-red-100 border-red-300'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">{variant.variant.variant_label}</span>
+                          <div className="flex items-center gap-2">
+                            {variant.status === 'accepted' && (
+                              <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
+                                Rank {variant.order}
+                              </Badge>
+                            )}
+                            <Badge variant={variant.status === 'accepted' ? 'default' : 'destructive'} className="text-xs">
+                              {variant.status === 'accepted' ? 'Accepted' : 'Rejected'}
+                              </Badge>
+                          </div>
+                        </div>
+                        {variant.variant.best_used_when && (
+                          <div className="mt-1 text-xs text-gray-600">
+                            <strong>Best Used When:</strong> {variant.variant.best_used_when}
+                          </div>
+                        )}
+                      </div>
+                    )) || (
+                      <div className="text-sm text-gray-500 italic">No preferences recorded</div>
+                    )}
+                                </div>
+                              </div>
+                              
+                {/* Mutually Acceptable Variants */}
+                {result.mutuallyAcceptableVariants && result.mutuallyAcceptableVariants.length > 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-yellow-900 mb-3 flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Mutually Acceptable Variants
+                    </h4>
+                                <div className="space-y-2">
+                      {result.mutuallyAcceptableVariants.map((variant, idx) => (
+                        <div key={idx} className="bg-white border border-yellow-300 rounded p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-sm">{variant.variant.variant_label}</span>
+                            <div className="flex gap-2">
+                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+                                My Rank: {isInitiator ? variant.initiatorRank : variant.invitedUserRank}
+                                    </Badge>
+                              <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
+                                Mutually Accepted
+                                    </Badge>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-600">{variant.variant.text}</p>
+                        </div>
+                      ))}
+                    </div>
                 </div>
               )}
             </CardContent>
           </Card>
-        )}
+            );
+          })}
+        </div>
 
-        {/* PDF Download Section - Only show when fully signed */}
-        {isAgreementFullySigned && (
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Download className="w-5 h-5" />
-                Download Agreement
-              </CardTitle>
-              <CardDescription>
-                Download the final agreement PDF containing only the clauses that both parties have agreed upon.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-green-900">Agreement Ready for Download</h4>
-                    <p className="text-sm text-green-700">
-                      This PDF contains only the clauses where both parties agreed (green status).
-                    </p>
+        {/* Chat Section */}
+        <div className="mt-8">
+          <AgreementChat agreementId={agreementId} />
                   </div>
                 </div>
-                <Button 
-                  onClick={handleDownloadPDF} 
-                  variant="default" 
-                  className="gap-2 bg-green-600 hover:bg-green-700"
-                >
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Chat Component - Floating */}
-        {currentUserId && agreement && (
-          <AgreementChat 
-            agreementId={agreementId}
-            currentUserId={currentUserId}
-            otherPartyName={
-              currentUserId === agreement.initiatorId._id 
-                ? agreement.invitedUserId.name 
-                : agreement.initiatorId.name
-            }
-          />
-        )}
-
-        {/* Signature Overlay */}
+      {/* Signature Modal */}
+      {showSignature && (
         <SignatureOverlay
-          isOpen={showSignatureOverlay}
-          onClose={() => setShowSignatureOverlay(false)}
           agreementId={agreementId}
-          userSignature={userSignature || undefined}
-          userName={userProfile?.name || 'User'}
-          onSignSuccess={handleSignSuccess}
+          onClose={() => setShowSignature(false)}
+          onSuccess={() => {
+            setShowSignature(false)
+            fetchAgreement() // Refresh to show updated status
+          }}
         />
-
-      </div>
+      )}
     </div>
   )
 }
