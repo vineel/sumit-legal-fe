@@ -355,7 +355,7 @@ export default function AgreementViewPage() {
         return
       }
 
-      await downloadAgreementPDF(agreementId, token)
+      await downloadAgreementPDF(token, agreementId)
       
       toast({
         title: "Success",
@@ -467,10 +467,12 @@ export default function AgreementViewPage() {
                   PDF available after both parties sign
                 </div>
               )}
-              <Button variant="outline" onClick={() => router.push(`/agreement-update-intake/${agreementId}`)}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Intake Form
-              </Button>
+              {!(agreement.signatures?.initiatorSignature?.signed && agreement.signatures?.invitedUserSignature?.signed) && (
+                <Button variant="outline" onClick={() => router.push(`/agreement-update-intake/${agreementId}`)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Intake Form
+                </Button>
+              )}
               {agreement.status === 'active' && (
                 <Button onClick={handleSignAgreement}>
                   <PenTool className="w-4 h-4 mr-2" />
